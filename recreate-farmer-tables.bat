@@ -1,0 +1,10 @@
+@echo off
+echo Running scripts to recreate farmer-related tables...
+
+echo Step 1: Running recreate_farmer_profiles.sql
+node -e "const fs = require('fs'); const path = require('path'); const { execSync } = require('child_process'); const sql = fs.readFileSync(path.join(__dirname, 'recreate_farmer_profiles.sql'), 'utf8'); const supabaseUrl = process.env.VITE_SUPABASE_URL; const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY; if (!supabaseUrl || !supabaseKey) { console.error('Supabase URL and key must be set in environment variables'); process.exit(1); } const cmd = `curl -X POST '${supabaseUrl}/rest/v1/rpc/execute_sql' -H 'apikey: ${supabaseKey}' -H 'Authorization: Bearer ${supabaseKey}' -H 'Content-Type: application/json' -d '{ \"sql\": ${JSON.stringify(sql)} }'`; try { const output = execSync(cmd, { stdio: 'inherit' }); console.log('Successfully executed recreate_farmer_profiles.sql'); } catch (error) { console.error('Error executing SQL:', error.message); }"
+
+echo Step 2: Running recreate_organization_members.sql
+node -e "const fs = require('fs'); const path = require('path'); const { execSync } = require('child_process'); const sql = fs.readFileSync(path.join(__dirname, 'recreate_organization_members.sql'), 'utf8'); const supabaseUrl = process.env.VITE_SUPABASE_URL; const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY; if (!supabaseUrl || !supabaseKey) { console.error('Supabase URL and key must be set in environment variables'); process.exit(1); } const cmd = `curl -X POST '${supabaseUrl}/rest/v1/rpc/execute_sql' -H 'apikey: ${supabaseKey}' -H 'Authorization: Bearer ${supabaseKey}' -H 'Content-Type: application/json' -d '{ \"sql\": ${JSON.stringify(sql)} }'`; try { const output = execSync(cmd, { stdio: 'inherit' }); console.log('Successfully executed recreate_organization_members.sql'); } catch (error) { console.error('Error executing SQL:', error.message); }"
+
+echo Done! 

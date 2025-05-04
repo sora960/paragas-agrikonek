@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Connection Test</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase Connection Test</h1>
+    <div id="results"></div>
+
+    <script>
+        // Log output function
+        function log(message, isError = false) {
+            const resultDiv = document.getElementById('results');
+            const entry = document.createElement('div');
+            entry.textContent = message;
+            if (isError) {
+                entry.style.color = 'red';
+            }
+            resultDiv.appendChild(entry);
+            console.log(message);
+        }
+
+        // Test Supabase connection
+        async function testSupabase() { 
+            try {
+                // Replace with your actual Supabase URL and anon key
+                const supabaseUrl = 'https://supabase.eztechsolutions.pro';
+                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzQ1ODU2MDAwLCJleHAiOjE5MDM2MjI0MDB9.sy-9H6NPDFudwDSFAeBhzVgVrUSQE0gj8PK42BYbVwI';
+                
+                log(`Testing connection to: ${supabaseUrl}`);
+                
+                // Create Supabase client
+                const { createClient } = supabase;
+                const supabaseClient = createClient(supabaseUrl, supabaseKey);
+                
+                // Test basic connectivity
+                log('Attempting to connect...');
+                
+                // Try to fetch a non-existent table to see if we get a proper response
+                // (we expect an error, but a specific Supabase error, not a network error)
+                const { data, error } = await supabaseClient.from('_test_connection').select('*').limit(1);
+                
+                if (error) {
+                    if (error.code === '42P01') { // Relation does not exist error (expected)
+                        log('✅ Connection successful! (Expected error about non-existent table)');
+                    } else {
+                        log(`❌ Connection test resulted in error: ${error.message} (${error.code})`, true);
+                    }
+                } else {
+                    log('✅ Connection successful!');
+                }
+                
+                // Check if the todos table exists
+                log('Checking for todos table...');
+                const { data: todosData, error: todosError } = await supabaseClient.from('todos').select('*').limit(1);
+                
+                if (todosError) {
+                    log(`❌ Cannot access todos table: ${todosError.message} (${todosError.code})`, true);
+                    
+                    if (todosError.code === '42P01') { // Table doesn't exist
+                        log('The todos table does not exist. Create it in the Supabase SQL editor.', true);
+                    }
+                } else {
+                    log('✅ Todos table found! Sample data:');
+                    log(JSON.stringify(todosData, null, 2));
+                }
+                
+            } catch (err) {
+                log(`❌ Unexpected error: ${err.message}`, true);
+            }
+        }
+        
+        // Run the test
+        testSupabase();
+    </script>
+</body>
+</html> 

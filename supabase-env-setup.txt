@@ -1,0 +1,101 @@
+SUPABASE CONNECTION TROUBLESHOOTING GUIDE
+
+STEP 1: CHECK YOUR .ENV.LOCAL FILE
+==============================
+Your console logs show that requests are going to "supabase.eztechsolutions.pro" instead of your local Supabase instance.
+Create or modify your .env.local file (in the project root) to contain:
+
+```
+VITE_SUPABASE_URL=http://192.168.8.194:8000
+VITE_SUPABASE_ANON_KEY=your-actual-anon-key
+```
+
+Replace the port "8000" with the actual port your Supabase instance is running on, which might be:
+- 8000 (default API port)
+- 3000 (sometimes used for self-hosted instances)
+- 9000 (sometimes used for self-hosted instances)
+
+STEP 2: VERIFY SUPABASE INSTANCE IS RUNNING
+=======================================
+Make sure your self-hosted Supabase instance is running at 192.168.8.194.
+You can check if it's accessible by navigating to http://192.168.8.194:[PORT] in your browser.
+
+STEP 3: CHECK CORS SETTINGS
+=======================
+Your self-hosted Supabase instance might have CORS restrictions.
+In your Supabase dashboard or configuration, ensure that your app's origin (http://192.168.8.194:8080) is allowed.
+
+STEP 4: VERIFY TODOS TABLE EXISTS
+============================
+In your Supabase SQL editor, run:
+
+```sql
+-- Check if todos table exists
+SELECT EXISTS (
+   SELECT FROM information_schema.tables 
+   WHERE table_schema = 'public'
+   AND table_name = 'todos'
+);
+
+-- If it doesn't exist, create it:
+CREATE TABLE public.todos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  task TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.todos ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for anonymous access
+CREATE POLICY "Allow anonymous access" ON public.todos
+  FOR ALL
+  TO anon
+  USING (true)
+  WITH CHECK (true);
+```
+
+STEP 5: RESTART YOUR DEVELOPMENT SERVER
+===================================
+After making these changes, restart your development server:
+
+```
+npm run dev
+```
+
+STEP 6: DEBUG WITH NETWORK INSPECTOR
+===============================
+In your browser's developer tools, go to the Network tab and look for requests to your Supabase URL.
+Check the request URL and response to identify any issues.
+
+STEP 7: MODIFY THE SUPABASE CLIENT INITIALIZATION
+============================================
+If needed, update your src/lib/supabase.ts file to explicitly log the URL being used:
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+// Log the actual values for debugging
+console.log('Actual Supabase URL:', supabaseUrl)
+console.log('Actual Supabase Key length:', supabaseAnonKey ? supabaseAnonKey.length : 0)
+
+export const supabase = createClient(
+  supabaseUrl || '',
+  supabaseAnonKey || '',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+    global: {
+      headers: {
+        'x-application-name': 'AgriConnect',
+      },
+    },
+  }
+)
+``` 
