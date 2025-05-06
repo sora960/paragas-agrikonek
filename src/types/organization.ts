@@ -15,8 +15,8 @@ export interface OrganizationMember {
   organization_id: string;
   farmer_id: string;
   role: 'admin' | 'member';
-  joined_at: string;
-  status: 'active' | 'inactive';
+  join_date: string;
+  status: 'active' | 'inactive' | 'pending' | 'rejected';
 }
 
 export interface Budget {

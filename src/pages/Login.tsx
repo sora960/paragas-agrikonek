@@ -80,16 +80,44 @@ export default function Login() {
 
   async function handleCreateTestUsers() {
     try {
+      setLoading(true);
+      toast.info("Creating test users...");
+      
       const result = await createTestUsers();
+      
       if (result.success) {
-        toast.success("Test users created successfully. You can login with any of these accounts:\n- farmer@test.com\n- regional@test.com\n- organization@test.com\n- superadmin@test.com\nPassword for all: password123");
+        toast.success(
+          "Test users created successfully. You can login with any of these accounts using password 'password123':",
+          {
+            description: (
+              <ul className="mt-2 list-disc pl-4">
+                <li>farmer@test.com (Farmer)</li>
+                <li>regional@test.com (Regional Admin)</li>
+                <li>organization@test.com (Org Admin)</li>
+                <li>superadmin@test.com (Super Admin)</li>
+              </ul>
+            ),
+            duration: 10000,
+          }
+        );
         setTestUsersCreated(true);
       } else {
         toast.error("Failed to create test users: " + (result.error?.message || "Unknown error"));
+        
+        // Show specific errors for each user if available
+        if (result.results) {
+          result.results.forEach(item => {
+            if (!item.result.success) {
+              toast.error(`Error creating ${item.email}: ${item.result.error?.message || "Unknown error"}`);
+            }
+          });
+        }
       }
     } catch (error: any) {
       console.error("Error creating test users:", error);
       toast.error(`Failed to create test users: ${error.message || "Unknown error"}`);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -172,6 +200,11 @@ export default function Login() {
             Don't have an account?{" "}
             <Link to="/register" className="text-[#4F772D] hover:underline">
               Create one
+            </Link>
+          </div>
+          <div className="text-center text-xs text-muted-foreground">
+            <Link to="/test-auth" className="text-gray-400 hover:underline">
+              Admin Auth Tools
             </Link>
           </div>
         </CardFooter>

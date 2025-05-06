@@ -14,6 +14,9 @@ interface User {
   full_name?: string;
   role?: string;
   created_at?: string;
+  status: string;
+  organizations?: any[];
+  has_organization?: boolean;
 }
 
 export const adminService = {
@@ -42,7 +45,34 @@ export const adminService = {
         return true;
       }
       
-      // Direct insertion into the organization_admins table
+      // Check if user has appropriate role
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('id', userId)
+        .single();
+        
+      if (userError) {
+        console.error("Error checking user role:", userError);
+        throw userError;
+      }
+      
+      // If user doesn't have org_admin role, update it
+      if (userData.role !== 'org_admin' && userData.role !== 'organization_admin' && userData.role !== 'superadmin') {
+        console.log(`User has role ${userData.role}, updating to org_admin`);
+        
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ role: 'org_admin' })
+          .eq('id', userId);
+          
+        if (updateError) {
+          console.error("Error updating user role:", updateError);
+          throw updateError;
+        }
+      }
+      
+      // Insert into the organization_admins table
       const { error } = await supabase
         .from('organization_admins')
         .insert({
@@ -76,22 +106,34 @@ export const adminService = {
           users:user_id (
             id,
             email,
-            full_name:raw_user_meta_data->>'full_name'
+            first_name,
+            last_name,
+            role,
+            status
           )
         `)
         .eq('organization_id', organizationId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error getting organization admins:', error);
+        return [];
+      }
+
+      if (!data || data.length === 0) {
+        return [];
+      }
 
       // Extract user data from nested structure with type assertion
-      return data?.map(item => ({
+      return data.map(item => ({
         id: (item as any).users.id,
         email: (item as any).users.email,
-        full_name: (item as any).users.full_name
-      })) || [];
+        full_name: `${(item as any).users.first_name || ''} ${(item as any).users.last_name || ''}`.trim(),
+        role: (item as any).users.role,
+        status: (item as any).users.status || 'active'
+      }));
     } catch (error) {
       console.error('Error getting organization admins:', error);
-      throw error;
+      return [];
     }
   },
 
@@ -178,7 +220,7 @@ export const adminService = {
       // Check if user with this email already exists
       const { data: existingUser, error: checkError } = await supabase
         .from('users')
-        .select('email')
+        .select('id, email, first_name, last_name, role, status')
         .eq('email', userData.email)
         .maybeSingle();
 
@@ -187,8 +229,23 @@ export const adminService = {
         throw checkError;
       }
 
+      // If user already exists, check if they can be used as an organization admin
       if (existingUser) {
-        throw new Error("User with this email already exists");
+        console.log("User with this email already exists, checking if they can be used as an org admin");
+        
+        // If the user already exists and has a compatible role, we can just return them
+        if (existingUser.role === 'org_admin' || existingUser.role === 'organization_admin' || existingUser.role === 'superadmin') {
+          return {
+            id: existingUser.id,
+            email: existingUser.email,
+            full_name: `${existingUser.first_name || ''} ${existingUser.last_name || ''}`.trim(),
+            role: existingUser.role,
+            status: existingUser.status || 'active'
+          };
+        }
+        
+        // If user exists but has an incompatible role, throw a more specific error
+        throw new Error(`User with email ${userData.email} exists but has role "${existingUser.role}" which cannot be used as an organization admin`);
       }
 
       // Generate a UUID for the user
@@ -209,6 +266,11 @@ export const adminService = {
         });
         
       if (userError) {
+        // Handle the specific case of duplicate key violation again as a safeguard
+        if (userError.code === '23505' && userError.message.includes('users_email_key')) {
+          throw new Error(`User with email ${userData.email} already exists`);
+        }
+        
         console.error("Error creating user:", userError);
         throw userError;
       }
@@ -237,10 +299,88 @@ export const adminService = {
         email: userData.email,
         full_name: `${userData.first_name} ${userData.last_name}`.trim(),
         role: "org_admin",
+        status: "active"
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating admin user:', error);
       throw error;
+    }
+  },
+
+  /**
+   * Get all users with org_admin role
+   */
+  async getAllOrganizationAdmins(searchTerm: string = ''): Promise<User[]> {
+    try {
+      // Get all users with org_admin role
+      let query = supabase
+        .from('users')
+        .select('id, email, first_name, last_name, role, status')
+        .or('role.eq.org_admin,role.eq.organization_admin')
+        .order('email');
+        
+      // Add search filter if provided
+      if (searchTerm && searchTerm.length > 0) {
+        query = query.or(`email.ilike.%${searchTerm}%, first_name.ilike.%${searchTerm}%, last_name.ilike.%${searchTerm}%`);
+      }
+      
+      const { data: users, error: userError } = await query;
+      
+      if (userError) {
+        console.error("Error fetching organization admins:", userError);
+        return [];
+      }
+      
+      if (!users || users.length === 0) {
+        return [];
+      }
+      
+      // Get all organization_admins entries to check which admins have organizations
+      const userIds = users.map(user => user.id);
+      
+      const { data: orgAdmins, error: orgError } = await supabase
+        .from('organization_admins')
+        .select('user_id, organization_id, organizations:organization_id(name)')
+        .in('user_id', userIds);
+        
+      if (orgError) {
+        console.error("Error fetching admin organization assignments:", orgError);
+      }
+      
+      // Create a map of user_id to organizations
+      const userOrganizationsMap = new Map();
+      
+      if (orgAdmins) {
+        orgAdmins.forEach(item => {
+          if (!userOrganizationsMap.has(item.user_id)) {
+            userOrganizationsMap.set(item.user_id, []);
+          }
+          userOrganizationsMap.get(item.user_id).push({
+            id: item.organization_id,
+            name: (item.organizations as any)?.name || 'Unknown Organization'
+          });
+        });
+      }
+      
+      // Map users with their organization info and set status to "occupied" or "available"
+      return users.map(user => {
+        const hasOrganizations = userOrganizationsMap.has(user.id) && userOrganizationsMap.get(user.id).length > 0;
+        
+        return {
+          id: user.id,
+          email: user.email,
+          full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+          role: user.role,
+          // Keep original status if it's not 'active', otherwise determine based on assignments
+          status: user.status !== 'active' ? user.status : hasOrganizations ? 'occupied' : 'available',
+          organizations: userOrganizationsMap.get(user.id) || [],
+          has_organization: hasOrganizations
+        };
+      });
+      
+    } catch (error) {
+      console.error('Error getting all organization admins:', error);
+      return [];
     }
   },
 }; 

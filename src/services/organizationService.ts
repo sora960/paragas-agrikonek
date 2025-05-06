@@ -4,14 +4,22 @@ import type { Organization, OrganizationMember, Budget, BudgetAllocation, Financ
 export const organizationService = {
   // Organization Operations
   async getOrganization(id: string): Promise<Organization | null> {
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
-    if (error) throw error;
-    return data;
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching organization:", error);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.error("Exception fetching organization:", error);
+      return null;
+    }
   },
 
   async getOrganizationByMember(userId: string): Promise<Organization | null> {
@@ -295,5 +303,158 @@ export const organizationService = {
 
     if (error) throw error;
     return data;
+  },
+
+  // Member Operations
+  async getOrganizationMembers(organizationId: string): Promise<any[]> {
+    try {
+      // First fetch the members from organization_members table
+      const { data: memberData, error: memberError } = await supabase
+        .from("organization_members")
+        .select(`
+          id, 
+          farmer_id,
+          role,
+          status,
+          join_date
+        `)
+        .eq("organization_id", organizationId);
+      
+      if (memberError) {
+        console.error("Error fetching organization members:", memberError);
+        return [];
+      }
+
+      // If no members found, return empty array
+      if (!memberData || memberData.length === 0) {
+        return [];
+      }
+
+      // Extract farmer IDs to fetch farmer details
+      const farmerIds = memberData.map(member => member.farmer_id);
+      
+      // Fetch farmer profiles
+      const { data: farmerProfiles, error: farmerError } = await supabase
+        .from("farmer_profiles")
+        .select(`
+          id,
+          user_id,
+          full_name,
+          farm_name,
+          email,
+          phone
+        `)
+        .in("id", farmerIds);
+      
+      if (farmerError) {
+        console.error("Error fetching farmer profiles:", farmerError);
+        // Return basic member data without farmer details
+        return memberData;
+      }
+
+      // Create a map of farmer profiles for easy lookup
+      const farmerMap = farmerProfiles.reduce((acc, farmer) => {
+        acc[farmer.id] = farmer;
+        return acc;
+      }, {});
+
+      // Combine member data with farmer profiles
+      return memberData.map(member => ({
+        id: member.id,
+        farmer_id: member.farmer_id,
+        role: member.role,
+        status: member.status,
+        join_date: member.join_date,
+        farmer: farmerMap[member.farmer_id] || {
+          full_name: "Unknown Farmer",
+          farm_name: "",
+          email: "",
+          phone: ""
+        }
+      }));
+    } catch (error) {
+      console.error("Exception fetching organization members:", error);
+      return [];
+    }
+  },
+
+  // Organization delete operation
+  async deleteOrganization(organizationId: string): Promise<boolean> {
+    try {
+      // 1. Delete the organization admin relationships first
+      const { error: adminError } = await supabase
+        .from('organization_admins')
+        .delete()
+        .eq('organization_id', organizationId);
+      
+      if (adminError) {
+        console.error("Error deleting organization admin relationships:", adminError);
+        throw adminError;
+      }
+      
+      // 2. Delete the organization members
+      const { error: membersError } = await supabase
+        .from('organization_members')
+        .delete()
+        .eq('organization_id', organizationId);
+      
+      if (membersError) {
+        console.error("Error deleting organization members:", membersError);
+        throw membersError;
+      }
+      
+      // 3. Finally delete the organization itself
+      const { error } = await supabase
+        .from('organizations')
+        .delete()
+        .eq('id', organizationId);
+      
+      if (error) {
+        console.error("Error deleting organization:", error);
+        throw error;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Exception deleting organization:", error);
+      return false;
+    }
+  },
+
+  // Get next available registration number
+  async getNextRegistrationNumber(): Promise<string> {
+    try {
+      // Get all existing registration numbers
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('registration_number')
+        .order('registration_number', { ascending: false });
+      
+      if (error) {
+        console.error("Error fetching registration numbers:", error);
+        return "1"; // Default to 1 if there's an error
+      }
+      
+      if (!data || data.length === 0) {
+        return "1"; // First organization
+      }
+      
+      // Find the highest numeric registration number
+      let highestNumber = 0;
+      
+      data.forEach(org => {
+        // Try to parse the registration number as an integer
+        const regNum = parseInt(org.registration_number, 10);
+        if (!isNaN(regNum) && regNum > highestNumber) {
+          highestNumber = regNum;
+        }
+      });
+      
+      // Return the next number as a string
+      return (highestNumber + 1).toString();
+    } catch (error) {
+      console.error("Exception getting next registration number:", error);
+      return "1"; // Default to 1 if there's an exception
+    }
   }
 }; 

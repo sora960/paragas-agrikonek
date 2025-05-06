@@ -17,6 +17,7 @@ import {
   User,
   UserPlus,
   Building,
+  Megaphone,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMessaging } from "@/hooks/useMessaging";
@@ -59,7 +60,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       { label: "Dashboard", path: "/superadmin", icon: LayoutDashboard },
       { label: "Regions", path: "/superadmin/regions", icon: Map },
       { label: "Organizations", path: "/superadmin/organizations", icon: Building2 },
-      { label: "Users", path: "/superadmin/users", icon: Users },
+      { label: "User Management", path: "/admin/user-management", icon: Users },
       { label: "Reports", path: "/superadmin/reports", icon: BarChart3 },
       { label: "Settings", path: "/superadmin/settings", icon: Settings },
     ],
@@ -74,6 +75,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       { label: "Dashboard", path: "/organization-admin", icon: LayoutDashboard },
       { label: "Members", path: "/organization-admin/members", icon: Users },
       { label: "Applications", path: "/organization-admin/applications", icon: UserPlus },
+      { label: "Announcements", path: "/organization-admin/announcements", icon: Megaphone },
       { label: "Messages", path: "/organization-admin/messages", icon: MessageCircle },
       { label: "Budget", path: "/organization/budget", icon: DollarSign },
       { label: "Expenses", path: "/organization/expenses", icon: Receipt },
@@ -83,6 +85,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       { label: "Dashboard", path: "/farmer", icon: LayoutDashboard },
       { label: "Profile", path: "/farmer/profile", icon: User },
       { label: "Organization", path: "/farmer/organization", icon: Building },
+      { label: "Announcements", path: "/farmer/announcements", icon: Megaphone },
       { label: "Apply", path: "/farmer/apply", icon: UserPlus },
       { label: "Messages", path: "/farmer/messages", icon: MessageCircle },
       { label: "Plots", path: "/farmer/plots", icon: Map },

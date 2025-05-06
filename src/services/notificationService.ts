@@ -65,17 +65,20 @@ export const getUserNotifications = async (limit = 50, onlyUnread = false): Prom
  */
 export const getUnreadNotificationCount = async (): Promise<number> => {
   try {
+    // Using direct count on the notifications table instead of the view
+    // which might not be properly set up for .single() requests
     const { data, error } = await supabase
-      .from('unread_notifications_count')
-      .select('count')
-      .single();
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_read', false);
     
     if (error) {
       console.error('Error fetching unread count:', error);
       return 0;
     }
     
-    return data?.count || 0;
+    // The count is returned in the response metadata
+    return data?.length ?? 0;
   } catch (error) {
     console.error('Error in getUnreadNotificationCount:', error);
     return 0;

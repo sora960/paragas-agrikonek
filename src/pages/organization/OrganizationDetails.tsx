@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,19 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
 import { Progress } from "@/components/ui/progress";
 import OrganizationAdmins from "@/components/organization/OrganizationAdmins";
+import { OrganizationGroupChat } from "@/components/messaging/OrganizationGroupChat";
+import { organizationService } from "@/services/organizationService";
+import { AlertCircle, Edit, Trash2, MoveDown } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
+import { Loader2 } from "lucide-react";
 
 interface Organization {
   id: string;
@@ -37,14 +50,22 @@ interface Organization {
 export default function OrganizationDetails() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    loadOrganizationData();
+    if (id) {
+      loadOrganizationData();
+    }
   }, [id]);
 
   const loadOrganizationData = async () => {
+    if (!id) return;
+    
     try {
       setLoading(true);
       
@@ -75,6 +96,89 @@ export default function OrganizationDetails() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditOrganization = () => {
+    // Navigate to edit page (this would need to be implemented)
+    // For now we'll just show a toast
+    toast({
+      title: "Edit Organization",
+      description: "Navigating to edit organization page",
+    });
+    // Uncomment when the edit page is available:
+    // navigate(`/superadmin/organizations/edit/${id}`);
+  };
+
+  const handleDeactivateOrganization = async () => {
+    if (!organization || !id) return;
+    
+    try {
+      setProcessing(true);
+      
+      // Toggle the status (if active, make inactive and vice versa)
+      const newStatus = organization.status === 'active' ? 'inactive' : 'active';
+      
+      const { error } = await supabase
+        .from('organizations')
+        .update({ status: newStatus })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setOrganization({
+        ...organization,
+        status: newStatus
+      });
+      
+      toast({
+        title: "Status Updated",
+        description: `Organization ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`,
+      });
+      
+    } catch (error) {
+      console.error('Error updating organization status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update organization status",
+        variant: "destructive"
+      });
+    } finally {
+      setProcessing(false);
+      setIsDeactivateDialogOpen(false);
+    }
+  };
+
+  const handleDeleteOrganization = async () => {
+    if (!organization || !id) return;
+    
+    try {
+      setProcessing(true);
+      
+      const success = await organizationService.deleteOrganization(id);
+      
+      if (success) {
+        toast({
+          title: "Organization Deleted",
+          description: "Organization has been permanently deleted",
+        });
+        
+        // Navigate back to organizations list
+        navigate('/superadmin/organizations');
+      } else {
+        throw new Error("Failed to delete organization");
+      }
+    } catch (error) {
+      console.error('Error deleting organization:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete organization",
+        variant: "destructive"
+      });
+    } finally {
+      setProcessing(false);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -232,11 +336,115 @@ export default function OrganizationDetails() {
           organizationName={organization.name} 
         />
 
+        <Card className="mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-amber-600">Note About Organization Management</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-sm">
+                Organizations can function without a dedicated administrator. Super administrators can always 
+                manage all organizations from the admin dashboard. You can add an organization administrator later 
+                using the "Add Admin" button above.
+              </p>
+              <p className="text-sm">
+                <strong>Member Communication:</strong> Members can still communicate with each other using the organization 
+                group chat below. This allows collaboration even without an assigned administrator. All communications are 
+                visible to all organization members and super administrators.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <OrganizationGroupChat 
+          organizationId={organization.id}
+          organizationName={organization.name}
+        />
+
         <div className="flex justify-end space-x-4">
-          <Button variant="outline">Edit Organization</Button>
-          <Button variant="destructive">Deactivate Organization</Button>
+          <Button 
+            variant="outline" 
+            onClick={handleEditOrganization}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Organization
+          </Button>
+          <Button 
+            variant={organization.status === 'active' ? "destructive" : "default"}
+            onClick={() => setIsDeactivateDialogOpen(true)}
+          >
+            <MoveDown className="h-4 w-4 mr-2" />
+            {organization.status === 'active' ? 'Deactivate' : 'Activate'} Organization
+          </Button>
+          <Button 
+            variant="destructive"
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete Organization
+          </Button>
         </div>
       </div>
+      
+      {/* Deactivate Organization Dialog */}
+      <AlertDialog 
+        open={isDeactivateDialogOpen} 
+        onOpenChange={setIsDeactivateDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {organization.status === 'active' ? 'Deactivate' : 'Activate'} Organization
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {organization.status === 'active' 
+                ? 'This will deactivate the organization and prevent members from accessing it. Are you sure?'
+                : 'This will reactivate the organization and allow members to access it again. Continue?'
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={processing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeactivateOrganization}
+              disabled={processing}
+              className={organization.status === 'active' ? "bg-destructive hover:bg-destructive/90" : ""}
+            >
+              {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {organization.status === 'active' ? 'Deactivate' : 'Activate'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Delete Organization Dialog */}
+      <AlertDialog 
+        open={isDeleteDialogOpen} 
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              Delete Organization Permanently
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. It will permanently delete the organization and all associated data, including members, admins, and activity records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={processing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteOrganization}
+              disabled={processing}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {processing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 } 

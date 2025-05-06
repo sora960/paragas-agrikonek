@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,23 +25,127 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Search, Check, User } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface User {
   id: string;
   email: string;
   full_name?: string;
+  role?: string;
+  has_organization?: boolean;
+  organizations?: any[];
 }
 
 interface CreateOrganizationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOrganizationCreated?: () => void;
+  createdBySuper?: boolean;
+}
+
+interface AdminSearchDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAdminSelected: (admin: User) => void;
+}
+
+function AdminSearchDialog({ open, onOpenChange, onAdminSelected }: AdminSearchDialogProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [admins, setAdmins] = useState<User[]>([]);
+
+  const searchAdmins = async () => {
+    if (!searchTerm || searchTerm.length < 2) return;
+    
+    setSearching(true);
+    try {
+      // Use the new function that lists all org admins
+      const adminUsers = await adminService.getAllOrganizationAdmins(searchTerm);
+      setAdmins(adminUsers);
+      
+      if (adminUsers.length === 0) {
+        console.log("No admin users found matching the search term");
+      }
+    } catch (error) {
+      console.error("Error searching for admins:", error);
+      setAdmins([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Find Existing Admin</DialogTitle>
+          <DialogDescription>
+            Search for existing admin users by email
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="flex items-center space-x-2 mt-4">
+          <div className="grid flex-1 gap-2">
+            <Input
+              placeholder="Search by email"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && searchAdmins()}
+            />
+          </div>
+          <Button onClick={searchAdmins} disabled={searching || searchTerm.length < 2}>
+            {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          </Button>
+        </div>
+        
+        <div className="mt-4 max-h-[300px] overflow-y-auto">
+          {admins.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground">
+              {searching ? 'Searching...' : 'No admins found. Try a different search term.'}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {admins.map((admin) => (
+                <div 
+                  key={admin.id}
+                  className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 cursor-pointer"
+                  onClick={() => {
+                    onAdminSelected(admin);
+                    onOpenChange(false);
+                  }}
+                >
+                  <div className="flex items-center">
+                    <User className="h-5 w-5 mr-2 text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">{admin.full_name || admin.email}</p>
+                      <p className="text-xs text-muted-foreground">{admin.email}</p>
+                      {admin.has_organization && (
+                        <p className="text-xs text-orange-500 mt-1">
+                          Already managing {admin.organizations.length} organization(s)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={admin.has_organization ? "bg-yellow-50" : "bg-green-50"}>
+                      {admin.has_organization ? "Occupied" : "Available"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function CreateOrganizationDialog({
   open,
   onOpenChange,
   onOrganizationCreated,
+  createdBySuper = false
 }: CreateOrganizationDialogProps) {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
@@ -75,20 +180,40 @@ export default function CreateOrganizationDialog({
   const [loading, setLoading] = useState(false);
   const [loadingRegions, setLoadingRegions] = useState(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingRegNumber, setLoadingRegNumber] = useState(false);
+
+  // Add this new state for the admin search dialog
+  const [adminSearchDialogOpen, setAdminSearchDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchIslandGroups();
-  }, []);
-
-  // Watch for changes to contact_email to pre-populate admin form
-  useEffect(() => {
-    if (formData.contact_email && !selectedAdmin) {
-      // Use contact information for the admin form
-      if (formData.contact_email.length >= 3) {
-        showCreateAdminFormWithContactInfo();
-      }
+    
+    // If the dialog is open, fetch the next registration number
+    if (open) {
+      fetchNextRegistrationNumber();
     }
-  }, [formData.contact_email]);
+  }, [open]);
+
+  // New function to fetch the next registration number
+  const fetchNextRegistrationNumber = async () => {
+    try {
+      setLoadingRegNumber(true);
+      const nextNumber = await organizationService.getNextRegistrationNumber();
+      setFormData(prev => ({
+        ...prev,
+        registration_number: nextNumber
+      }));
+    } catch (error) {
+      console.error("Error fetching next registration number:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate registration number",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingRegNumber(false);
+    }
+  };
 
   const fetchIslandGroups = async () => {
     try {
@@ -169,23 +294,6 @@ export default function CreateOrganizationDialog({
     setShowCreateAdminForm(false);
   };
 
-  // Display the create admin form with contact info pre-populated
-  const showCreateAdminFormWithContactInfo = () => {
-    setShowCreateAdminForm(true);
-    
-    // Split contact person name into first and last name
-    const nameParts = formData.contact_person.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-    
-    setNewAdminData({
-      email: formData.contact_email,
-      first_name: firstName,
-      last_name: lastName,
-      password: "", // Password still needs to be entered manually
-    });
-  };
-
   // Function to create a new admin user
   const createNewAdmin = async () => {
     if (!newAdminData.email || !newAdminData.password || !newAdminData.first_name) {
@@ -261,21 +369,15 @@ export default function CreateOrganizationDialog({
     } catch (error: any) {
       console.error("Error creating admin user:", error);
       
-      // Handle different error types
       let errorMessage = "Failed to create admin user";
       
-      if (error?.message) {
-        if (error.message.includes("duplicate") || error.message.includes("already exists")) {
-          errorMessage = "A user with this email already exists";
-        } else if (error.message.includes("password")) {
-          errorMessage = "Password requirements not met";
-        } else if (error.message.includes("raw_user_meta_data")) {
-          errorMessage = "Database schema issue. Please contact your administrator.";
-        } else {
-          errorMessage = `Error: ${error.message}`;
-        }
-      } else if (error?.code) {
-        errorMessage = `Error code: ${error.code}`;
+      // Handle specific error messages from the service
+      if (error.message?.includes("already exists")) {
+        errorMessage = "A user with this email already exists. Please use a different email or choose an existing admin.";
+      } else if (error.message?.includes("exists but has role")) {
+        errorMessage = error.message;
+      } else if (error.code === '23505') {
+        errorMessage = "A user with this email already exists. Please use a different email.";
       }
       
       toast({
@@ -288,61 +390,93 @@ export default function CreateOrganizationDialog({
     }
   };
 
+  // Add this function to handle admin selection from search
+  const handleAdminSelected = (admin: User) => {
+    setSelectedAdmin(admin);
+    setShowCreateAdminForm(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
+    
+    if (!formData.name || !formData.registration_number || !formData.region_id) {
+      toast({
+        title: "Required Fields Missing",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
-      // Log organization data for debugging
-      console.log("Creating organization with data:", {
-        ...formData,
-        region_id: formData.region_id,
-        province_id: formData.province_id
-      });
+      setLoading(true);
       
-      // Create the organization with the selected region ID and province ID
-      const createdOrg = await organizationService.createOrganization({
-        ...formData,
-        region_id: formData.region_id,
-        province_id: formData.province_id
-      });
+      // Set status to active if created by superadmin
+      const status: 'pending' | 'active' | 'inactive' = createdBySuper ? 'active' : 'pending';
       
-      console.log("Organization created successfully:", createdOrg);
-
-      // If organization creation was successful and admin assignment is checked
-      if (createdOrg && assignAdmin && selectedAdmin) {
+      // Use admin's details for contact info if available
+      const organizationData = {
+        ...formData,
+        status: status,
+        // Use admin data for contact info if we have a selected admin
+        contact_person: selectedAdmin ? selectedAdmin.full_name || "" : formData.contact_person || "Not Assigned",
+        contact_email: selectedAdmin ? selectedAdmin.email : formData.contact_email || "not.assigned@example.com",
+        contact_phone: formData.contact_phone || "Not Assigned" // Default value if empty
+      };
+      
+      const organization = await organizationService.createOrganization(organizationData);
+      
+      if (!organization?.id) {
+        throw new Error("Failed to create organization - no ID returned");
+      }
+      
+      // If we have a selected admin user, assign them to the organization
+      if (assignAdmin && selectedAdmin) {
         try {
-          console.log("Assigning admin", selectedAdmin.id, "to organization", createdOrg.id);
-          
-          // Assign the selected user as an organization admin
-          await adminService.promoteToOrganizationAdmin(selectedAdmin.id, createdOrg.id);
-          
-          console.log("Admin assignment successful");
-          
-          toast({
-            title: "Success",
-            description: `Organization created successfully and ${selectedAdmin.email} assigned as admin`,
-          });
-        } catch (adminError: any) {
-          console.error("Error assigning admin:", adminError);
-          
-          let errorMessage = "Organization created, but failed to assign administrator";
-          if (adminError?.message) {
-            errorMessage += `: ${adminError.message}`;
+          // First verify the admin's password is stored
+          const { data: hasCredentials } = await supabase
+            .from("user_credentials")
+            .select("id")
+            .eq("user_id", selectedAdmin.id)
+            .maybeSingle();
+            
+          // If no credentials found, create them (in case user was created without password)  
+          if (!hasCredentials && newAdminData.password) {
+            await supabase
+              .from("user_credentials")
+              .insert({
+                user_id: selectedAdmin.id,
+                password_hash: newAdminData.password
+              });
           }
           
-          toast({
-            title: "Partial Success",
-            description: errorMessage,
-            variant: "destructive",
-          });
+          // Assign admin to organization
+          const { error: adminError } = await supabase
+            .from("organization_admins")
+            .insert({
+              user_id: selectedAdmin.id,
+              organization_id: organization.id
+            });
+            
+          if (adminError) {
+            console.error("Error assigning admin to organization:", adminError);
+            toast({
+              title: "Warning",
+              description: "Organization created, but failed to assign administrator",
+              variant: "default",
+            });
+          }
+        } catch (adminAssignError) {
+          console.error("Exception assigning admin to organization:", adminAssignError);
         }
-      } else {
-        toast({
-          title: "Success",
-          description: "Organization created successfully",
-        });
       }
+      
+      toast({
+        title: "Organization Created",
+        description: createdBySuper 
+          ? "Organization has been created successfully" 
+          : "Organization has been registered and is pending approval",
+      });
       
       // Reset form and close dialog
       setFormData({
@@ -410,14 +544,21 @@ export default function CreateOrganizationDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="registration_number">Registration Number *</Label>
+                <Label htmlFor="registration_number">Registration Number</Label>
                 <Input
                   id="registration_number"
                   name="registration_number"
                   value={formData.registration_number}
-                  onChange={handleInputChange}
-                  required
+                  readOnly
+                  disabled={loadingRegNumber}
+                  className="bg-muted"
                 />
+                {loadingRegNumber && (
+                  <div className="text-xs text-muted-foreground flex items-center">
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Generating number...
+                  </div>
+                )}
               </div>
             </div>
 
@@ -530,40 +671,6 @@ export default function CreateOrganizationDialog({
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="contact_person">Contact Person *</Label>
-                <Input
-                  id="contact_person"
-                  name="contact_person"
-                  value={formData.contact_person}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact_email">Email *</Label>
-                <Input
-                  id="contact_email"
-                  name="contact_email"
-                  type="email"
-                  value={formData.contact_email}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="contact_phone">Phone *</Label>
-                <Input
-                  id="contact_phone"
-                  name="contact_phone"
-                  value={formData.contact_phone}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -580,7 +687,7 @@ export default function CreateOrganizationDialog({
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-medium">Organization Administrator</h3>
-                  <p className="text-xs text-muted-foreground">Create an administrator for this organization</p>
+                  <p className="text-xs text-muted-foreground">Assign an administrator for this organization (optional)</p>
                 </div>
                 <div className="flex items-center">
                   <input 
@@ -600,15 +707,26 @@ export default function CreateOrganizationDialog({
                     <>
                       {/* Create Admin Form */}
                       {!showCreateAdminForm ? (
-                        <Button 
-                          type="button" 
-                          variant="secondary" 
-                          size="sm"
-                          className="w-full"
-                          onClick={showCreateAdminFormWithContactInfo}
-                        >
-                          Create New Admin User
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => setShowCreateAdminForm(true)}
+                          >
+                            Create New Admin
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => setAdminSearchDialogOpen(true)}
+                          >
+                            Find Existing Admin
+                          </Button>
+                        </div>
                       ) : (
                         <div className="border p-3 rounded-md bg-muted/20 space-y-3">
                           <h3 className="text-sm font-medium">Create New Admin User</h3>
@@ -724,12 +842,19 @@ export default function CreateOrganizationDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || (assignAdmin && !selectedAdmin && !showCreateAdminForm)}>
+            <Button type="submit" disabled={loading || (assignAdmin && !selectedAdmin && showCreateAdminForm)}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Register Organization
             </Button>
           </DialogFooter>
         </form>
+
+        {/* Admin Search Dialog */}
+        <AdminSearchDialog 
+          open={adminSearchDialogOpen}
+          onOpenChange={setAdminSearchDialogOpen}
+          onAdminSelected={handleAdminSelected}
+        />
       </DialogContent>
     </Dialog>
   );

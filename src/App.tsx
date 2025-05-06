@@ -15,9 +15,11 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SuperAdminRegions from "./pages/SuperAdminRegions";
 import RegionsManager from "./pages/RegionsManager";
 import SuperAdminOrganizations from "./pages/SuperAdminOrganizations";
+import OrganizationsPage from "./pages/OrganizationsPage";
 import SuperAdminUsers from "./pages/SuperAdminUsers";
 import SuperAdminReports from "./pages/SuperAdminReports";
 import SuperAdminSettings from "./pages/SuperAdminSettings";
+import UserManagement from "./pages/admin/UserManagement";
 import RegionalDashboard from "./pages/RegionalDashboard";
 import OrganizationDashboard from "./pages/OrganizationDashboard";
 import FarmerDashboard from "./pages/FarmerDashboard";
@@ -39,11 +41,14 @@ import OrganizationAdminDashboard from "./pages/organization-admin/OrganizationA
 import OrganizationAdminMembers from "./pages/organization-admin/OrganizationAdminMembers";
 import OrganizationApplications from "./pages/organization-admin/OrganizationApplications";
 import OrganizationAdminMessaging from "./pages/organization-admin/OrganizationAdminMessaging";
+import OrganizationAnnouncements from "./pages/organization-admin/OrganizationAnnouncements";
+import FarmerOrganizationAnnouncements from "./pages/farmer/OrganizationAnnouncements";
 import { useEffect } from "react";
 import { testSupabaseConnection } from "./lib/supabase";
 import Organization from "./pages/farmer/Organization";
 import Apply from "./pages/farmer/Apply";
 import FarmerMessaging from "./pages/farmer/FarmerMessaging";
+import TestAuthFunctions from "./lib/TestAuthFunctions";
 
 const queryClient = new QueryClient();
 
@@ -115,7 +120,7 @@ const App = () => {
                     path="/superadmin/organizations" 
                     element={
                       <ProtectedRoute allowedRoles={["superadmin"]}>
-                        <SuperAdminOrganizations />
+                        <OrganizationsPage />
                       </ProtectedRoute>
                     } 
                   />
@@ -132,6 +137,14 @@ const App = () => {
                     element={
                       <ProtectedRoute allowedRoles={["superadmin"]}>
                         <SuperAdminUsers />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/user-management" 
+                    element={
+                      <ProtectedRoute allowedRoles={["superadmin"]}>
+                        <UserManagement />
                       </ProtectedRoute>
                     } 
                   />
@@ -192,6 +205,14 @@ const App = () => {
                     element={
                       <ProtectedRoute allowedRoles={["org_admin", "organization_admin"]}>
                         <OrganizationApplications />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/organization-admin/announcements" 
+                    element={
+                      <ProtectedRoute allowedRoles={["org_admin", "organization_admin"]}>
+                        <OrganizationAnnouncements />
                       </ProtectedRoute>
                     } 
                   />
@@ -272,6 +293,14 @@ const App = () => {
                     } 
                   />
                   <Route 
+                    path="/farmer/announcements" 
+                    element={
+                      <ProtectedRoute allowedRoles={["farmer"]}>
+                        <FarmerOrganizationAnnouncements />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
                     path="/farmer/apply" 
                     element={
                       <ProtectedRoute allowedRoles={["farmer"]}>
@@ -312,6 +341,11 @@ const App = () => {
                         <NotificationSettings />
                       </ProtectedRoute>
                     } 
+                  />
+                  
+                  <Route 
+                    path="/test-auth" 
+                    element={<TestAuthFunctions />} 
                   />
                   
                   <Route path="*" element={<NotFound />} />
