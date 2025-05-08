@@ -18,8 +18,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { regionService, IslandGroup, Region, Province } from "@/services/regionService";
 import { populatePhilippineProvinces } from "@/lib/directSQLHelpers";
 import { supabase } from "@/lib/supabase";
-import { Loader2, MapPin, Building2, Users } from "lucide-react";
+import { Loader2, MapPin, Building2, Users, LayoutDashboard, DollarSign } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useNavigate } from "react-router-dom";
 
 // Interface for Organization
 interface Organization {
@@ -62,6 +63,7 @@ interface SupabaseOrganization {
 
 export default function RegionsManager() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   // State for data
   const [islandGroups, setIslandGroups] = useState<IslandGroup[]>([]);
@@ -90,6 +92,9 @@ export default function RegionsManager() {
   const [orgSearchQuery, setOrgSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Organization[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Add a new state for the smart search keyword
+  const [smartSearch, setSmartSearch] = useState("");
   
   useEffect(() => {
     loadData();
@@ -136,15 +141,8 @@ export default function RegionsManager() {
     setSelectedRegion(null);
     setSelectedProvince(null);
     setProvinces([]);
-    setOrganizations([]);
-    
-    // Filter regions based on island group (now using memo)
     setRegions(filteredRegions);
-    
-    // Get island group name
     const islandGroup = islandGroups.find(ig => ig.id === islandGroupId);
-    
-    // Set zero counts since no data exists yet
     setStats({
       totalFarmers: 0,
       totalOrganizations: 0,
@@ -163,30 +161,15 @@ export default function RegionsManager() {
     setSelectedRegion(regionId);
     setSelectedProvince(null);
     setLoadingProvinces(true);
-    setLoadingOrganizations(true);
-    setOrganizations([]);
-    
     try {
-      // Get region name
       const region = regions.find(r => r.id === regionId);
-      
-      // Set region info in stats
       setStats({
         totalFarmers: 0,
         totalOrganizations: 0,
         scopeLabel: region ? `${region.name} Region` : "Selected Region"
       });
-      
-      // Start both data loading processes in parallel for better performance
-      const provincesPromise = regionService.getProvinces(regionId);
-      const orgsPromise = loadOrganizationsForRegion(regionId);
-      
-      // Wait for provinces to load
-      const provincesData = await provincesPromise;
+      const provincesData = await regionService.getProvinces(regionId);
       setProvinces(provincesData);
-      
-      // Organizations will be loaded by the loadOrganizationsForRegion function
-      // No need to await it here as it sets its own state
     } catch (error) {
       console.error("Error loading region data:", error);
       toast({
@@ -203,20 +186,13 @@ export default function RegionsManager() {
   const handleProvinceChange = async (provinceId: string) => {
     setSelectedProvince(provinceId);
     setLoading(true);
-    
     try {
-      // Get province name
       const province = provinces.find(p => p.id === provinceId);
-      
-      // Set zero counts since no data exists yet
       setStats({
         totalFarmers: 0,
         totalOrganizations: 0,
         scopeLabel: province ? `${province.name} Province` : "Selected Province"
       });
-      
-      // Load organizations for this province
-      await loadOrganizationsForProvince(provinceId);
     } catch (error) {
       console.error("Error loading province data:", error);
       toast({
@@ -226,156 +202,6 @@ export default function RegionsManager() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-  
-  const loadOrganizationsForRegion = async (regionId: string) => {
-    setLoadingOrganizations(true);
-    try {
-      console.log("Loading organizations for region:", regionId);
-      
-      const { data, error } = await supabase
-        .from('organizations')
-        .select(`
-          id,
-          name,
-          status,
-          verification_status,
-          member_count,
-          created_at,
-          contact_person,
-          contact_email,
-          contact_phone,
-          registration_number,
-          address,
-          allocated_budget,
-          utilized_budget,
-          island_group_id,
-          region_id,
-          province_id
-        `)
-        .eq('region_id', regionId);
-      
-      if (error) {
-        throw error;
-      }
-      
-      console.log("Retrieved organizations:", data);
-      
-      // Transform the data to match our Organization interface
-      const transformedData = (data || []).map(org => {
-        // Cast to any to handle the properties safely
-        const orgData = org as any;
-        
-        return {
-          id: orgData.id,
-          name: orgData.name,
-          type: orgData.verification_status === 'verified' ? 'Verified' : 'Pending',
-          member_count: orgData.member_count || 0,
-          status: orgData.status,
-          created_at: orgData.created_at,
-          contact_person: orgData.contact_person || 'N/A',
-          contact_email: orgData.contact_email || 'N/A',
-          region_id: orgData.region_id,
-          province_id: orgData.province_id,
-          island_group_id: orgData.island_group_id,
-          region_name: 'Unknown Region', // We'll get this from context
-          province_name: 'Unknown Province'
-        };
-      });
-      
-      setOrganizations(transformedData);
-      
-      // Update stats with the actual count
-      setStats(prev => ({
-        ...prev,
-        totalOrganizations: transformedData.length
-      }));
-      
-    } catch (error) {
-      console.error("Error loading organizations for region:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load organizations for this region",
-        variant: "destructive"
-      });
-      setOrganizations([]);
-    } finally {
-      setLoadingOrganizations(false);
-    }
-  };
-  
-  const loadOrganizationsForProvince = async (provinceId: string) => {
-    setLoadingOrganizations(true);
-    try {
-      console.log("Loading organizations for province:", provinceId);
-      
-      // Query for organizations in this province
-      const { data, error } = await supabase
-        .from('organizations')
-        .select(`
-          id,
-          name,
-          status,
-          verification_status,
-          member_count,
-          created_at,
-          contact_person,
-          contact_email,
-          contact_phone,
-          registration_number,
-          address,
-          allocated_budget,
-          utilized_budget,
-          island_group_id,
-          region_id,
-          province_id
-        `)
-        .eq('province_id', provinceId);
-      
-      if (error) {
-        throw error;
-      }
-      
-      console.log("Retrieved organizations for province:", data);
-      
-      // Transform the data to match our Organization interface
-      const transformedData = (data || []).map(org => {
-        // Cast to any to handle the properties safely
-        const orgData = org as any;
-        
-        return {
-          id: orgData.id,
-          name: orgData.name,
-          type: orgData.verification_status === 'verified' ? 'Verified' : 'Pending',
-          member_count: orgData.member_count || 0,
-          status: orgData.status,
-          created_at: orgData.created_at,
-          contact_person: orgData.contact_person || 'N/A',
-          contact_email: orgData.contact_email || 'N/A',
-          region_id: orgData.region_id,
-          province_id: orgData.province_id,
-          island_group_id: orgData.island_group_id
-        };
-      });
-      
-      setOrganizations(transformedData);
-      
-      // Update stats with actual organization count
-      setStats(prev => ({
-        ...prev,
-        totalOrganizations: transformedData.length
-      }));
-    } catch (error) {
-      console.error("Error loading organizations for province:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load organizations for this province",
-        variant: "destructive"
-      });
-      setOrganizations([]);
-    } finally {
-      setLoadingOrganizations(false);
     }
   };
   
@@ -551,47 +377,38 @@ export default function RegionsManager() {
     await loadAllOrganizations();
   };
 
-  // Add a memoized filtered organizations list
+  // Update the filteredOrganizations logic to include smart search
   const filteredOrganizations = useMemo(() => {
-    console.log("Filtering organizations with selections:", { 
-      selectedIslandGroup, 
-      selectedRegion, 
-      selectedProvince, 
-      totalOrgs: organizations.length 
-    });
-    
+    let orgs = organizations;
+    // Apply geographic filters
     if (selectedProvince) {
-      console.log(`Filtering by province_id: ${selectedProvince}`);
-      const filtered = organizations.filter(org => {
-        const matches = org.province_id === selectedProvince;
-        if (matches) console.log(`Found match for province ${selectedProvince}:`, org);
-        return matches;
-      });
-      console.log(`Found ${filtered.length} organizations in province ${selectedProvince}`);
-      return filtered;
+      orgs = orgs.filter(org => org.province_id === selectedProvince);
     } else if (selectedRegion) {
-      console.log(`Filtering by region_id: ${selectedRegion}`);
-      const filtered = organizations.filter(org => {
-        const matches = org.region_id === selectedRegion;
-        if (matches) console.log(`Found match for region ${selectedRegion}:`, org);
-        return matches;
-      });
-      console.log(`Found ${filtered.length} organizations in region ${selectedRegion}`);
-      return filtered;
+      orgs = orgs.filter(org => org.region_id === selectedRegion);
     } else if (selectedIslandGroup) {
-      console.log(`Filtering by island_group_id: ${selectedIslandGroup}`);
-      const filtered = organizations.filter(org => {
-        const matches = org.island_group_id === selectedIslandGroup;
-        if (matches) console.log(`Found match for island group ${selectedIslandGroup}:`, org);
-        return matches;
-      });
-      console.log(`Found ${filtered.length} organizations in island group ${selectedIslandGroup}`);
-      return filtered;
+      orgs = orgs.filter(org => org.island_group_id === selectedIslandGroup);
     }
-    
-    // If no selection, return all organizations
-    return organizations;
-  }, [organizations, selectedIslandGroup, selectedRegion, selectedProvince]);
+    // Apply smart search
+    if (smartSearch.trim().length >= 2) {
+      const keyword = smartSearch.trim().toLowerCase();
+      orgs = orgs.filter(org =>
+        (org.name && org.name.toLowerCase().includes(keyword)) ||
+        (org.contact_person && org.contact_person.toLowerCase().includes(keyword)) ||
+        (org.contact_email && org.contact_email.toLowerCase().includes(keyword)) ||
+        (org.region_name && org.region_name.toLowerCase().includes(keyword)) ||
+        (org.province_name && org.province_name.toLowerCase().includes(keyword))
+      );
+    }
+    return orgs;
+  }, [organizations, selectedIslandGroup, selectedRegion, selectedProvince, smartSearch]);
+
+  // Add a memoized stats calculation based on filteredOrganizations
+  const filteredStats = useMemo(() => {
+    return {
+      totalOrganizations: filteredOrganizations.length,
+      totalFarmers: filteredOrganizations.reduce((sum, org) => sum + (org.member_count || 0), 0)
+    };
+  }, [filteredOrganizations]);
 
   // Add a new function to directly search organizations
   const searchOrganizations = async (query: string) => {
@@ -669,11 +486,21 @@ export default function RegionsManager() {
     return () => clearTimeout(timer);
   }, [orgSearchQuery]);
 
+  // Navigate to regional dashboard
+  const handleViewRegionDashboard = (regionId: string) => {
+    navigate(`/superadmin/regions/${regionId}`);
+  };
+  
+  // Navigate to regional budget management
+  const handleManageRegionBudget = (regionId: string) => {
+    navigate(`/superadmin/regions/budget/${regionId}`);
+  };
+
   return (
     <DashboardLayout userRole="superadmin">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Philippine Regions Management</h1>
+          <h1 className="text-3xl font-bold">Region & Organization Search</h1>
           
           <div className="flex gap-2">
             <Button 
@@ -683,14 +510,6 @@ export default function RegionsManager() {
             >
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Refresh Data
-            </Button>
-            <Button 
-              variant="default"
-              onClick={handlePopulatePhilippineProvinces}
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
-              Update Provinces Data
             </Button>
           </div>
         </div>
@@ -703,7 +522,7 @@ export default function RegionsManager() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalFarmers.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{filteredStats.totalFarmers.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 Registered farmers in {stats.scopeLabel.toLowerCase()}
               </p>
@@ -715,7 +534,7 @@ export default function RegionsManager() {
               <Building2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalOrganizations.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{filteredStats.totalOrganizations.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
                 Active organizations in {stats.scopeLabel.toLowerCase()}
               </p>
@@ -723,87 +542,25 @@ export default function RegionsManager() {
           </Card>
         </div>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>Organization Smart Search</CardTitle>
+            <CardDescription>Find and filter organizations by location, contact info, or keywords</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Input
+              placeholder="Type keyword to search (minimum 2 characters)..."
+              value={smartSearch}
+              onChange={e => setSmartSearch(e.target.value)}
+            />
+          </CardContent>
+        </Card>
+
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="search">Quick Search</TabsTrigger>
-            <TabsTrigger value="regions">Regions & Provinces</TabsTrigger>
+            <TabsTrigger value="regions">Search & Filter</TabsTrigger>
             <TabsTrigger value="budget">Budget Management</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="search" className="space-y-6">
-            {/* Quick Organization Search */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Organization Quick Search</CardTitle>
-                <CardDescription>Search organizations by name across all regions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="Type organization name to search (minimum 2 characters)..."
-                      value={orgSearchQuery}
-                      onChange={(e) => setOrgSearchQuery(e.target.value)}
-                    />
-                  </div>
-                </div>
-                
-                {isSearching && (
-                  <div className="flex justify-center my-4">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  </div>
-                )}
-                
-                {!isSearching && searchResults.length > 0 && (
-                  <div className="mt-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Organization</TableHead>
-                          <TableHead>Region</TableHead>
-                          <TableHead>Province</TableHead>
-                          <TableHead>Contact</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {searchResults.map(org => (
-                          <TableRow key={org.id}>
-                            <TableCell className="font-medium">{org.name}</TableCell>
-                            <TableCell>{org.region_name}</TableCell>
-                            <TableCell>{org.province_name}</TableCell>
-                            <TableCell>
-                              <div>
-                                <div>{org.contact_person}</div>
-                                <div className="text-xs text-muted-foreground">{org.contact_email}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={org.status === "active" ? "default" : "secondary"}>
-                                {org.status || "pending"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Button size="sm" variant="outline" asChild>
-                                <a href={`/organizations/${org.id}`}>View</a>
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-                
-                {!isSearching && orgSearchQuery && searchResults.length === 0 && (
-                  <div className="text-center my-4 text-muted-foreground">
-                    No organizations found matching "{orgSearchQuery}"
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
           
           <TabsContent value="regions" className="space-y-6">
             {/* Selection Form */}
@@ -916,104 +673,6 @@ export default function RegionsManager() {
                     </Button>
                   )}
                 </CardHeader>
-                
-                {/* Show list of provinces when a region is selected */}
-                {selectedRegion && !selectedProvince && provinces.length > 0 && (
-                  <CardContent>
-                    <h3 className="text-lg font-semibold mb-4">Provinces in {selectedRegionData?.name}</h3>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Province</TableHead>
-                          <TableHead className="text-right">Farmers</TableHead>
-                          <TableHead className="text-right">Organizations</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {provinces.map(province => (
-                          <TableRow 
-                            key={province.id} 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleProvinceChange(province.id)}
-                          >
-                            <TableCell className="font-medium">{province.name}</TableCell>
-                            <TableCell className="text-right">0</TableCell>
-                            <TableCell className="text-right">0</TableCell>
-                            <TableCell>
-                              <Badge variant={province.status === "active" ? "default" : "secondary"}>
-                                {province.status === "active" ? "Active" : "Pending"}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                )}
-                
-                {/* Show province details when a province is selected */}
-                {selectedProvince && selectedProvinceData && (
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="text-lg font-semibold mb-4">Province Details</h3>
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-muted/40 p-3 rounded-md">
-                              <p className="text-xs text-muted-foreground">Total Farmers</p>
-                              <p className="text-2xl font-bold">{stats.totalFarmers.toLocaleString()}</p>
-                            </div>
-                            <div className="bg-muted/40 p-3 rounded-md">
-                              <p className="text-xs text-muted-foreground">Organizations</p>
-                              <p className="text-2xl font-bold">{stats.totalOrganizations.toLocaleString()}</p>
-                            </div>
-                          </div>
-                          <div className="flex justify-between border-b py-2">
-                            <span className="text-muted-foreground">Status</span>
-                            <Badge variant={selectedProvinceData.status === "active" ? "default" : "secondary"}>
-                              {selectedProvinceData.status === "active" ? "Active" : "Pending"}
-                            </Badge>
-                          </div>
-                          <div className="flex justify-between border-b py-2">
-                            <span className="text-muted-foreground">Created</span>
-                            <span>{new Date(selectedProvinceData.created_at).toLocaleDateString()}</span>
-                          </div>
-                          <div className="flex justify-between border-b py-2">
-                            <span className="text-muted-foreground">Last Updated</span>
-                            <span>{new Date(selectedProvinceData.updated_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Region Info */}
-                      {selectedRegionData && (
-                        <div>
-                          <h3 className="text-lg font-semibold mb-4">Regional Information</h3>
-                          <div className="space-y-4">
-                            <div className="flex justify-between border-b py-2">
-                              <span className="text-muted-foreground">Region Code</span>
-                              <span className="font-medium">{selectedRegionData.code}</span>
-                            </div>
-                            <div className="flex justify-between border-b py-2">
-                              <span className="text-muted-foreground">Priority Level</span>
-                              <Badge variant={
-                                selectedRegionData.priority === "high" ? "destructive" :
-                                selectedRegionData.priority === "medium" ? "default" : "secondary"
-                              }>
-                                {selectedRegionData.priority || "medium"}
-                              </Badge>
-                            </div>
-                            <div className="flex justify-between border-b py-2">
-                              <span className="text-muted-foreground">Island Group</span>
-                              <span>{islandGroups.find(i => i.id === selectedRegionData.island_group_id)?.name}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                )}
               </Card>
             )}
 
@@ -1066,10 +725,25 @@ export default function RegionsManager() {
                               {org.status || "pending"}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <Button size="sm" variant="outline" asChild>
-                              <a href={`/organizations/${org.id}`}>View</a>
-                            </Button>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleViewRegionDashboard(org.id)}
+                              >
+                                <LayoutDashboard className="h-4 w-4 mr-1" />
+                                Dashboard
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleManageRegionBudget(org.id)}
+                              >
+                                <DollarSign className="h-4 w-4 mr-1" />
+                                Budget
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

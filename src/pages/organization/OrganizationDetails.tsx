@@ -10,7 +10,8 @@ import { Progress } from "@/components/ui/progress";
 import OrganizationAdmins from "@/components/organization/OrganizationAdmins";
 import { OrganizationGroupChat } from "@/components/messaging/OrganizationGroupChat";
 import { organizationService } from "@/services/organizationService";
-import { AlertCircle, Edit, Trash2, MoveDown } from "lucide-react";
+import { AlertCircle, Edit, Trash2, MoveDown, ChevronDown, ChevronRight } from "lucide-react";
+import EditContactDialog from "@/components/organization/EditContactDialog";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,23 @@ interface Organization {
   };
 }
 
+// CollapsibleCard component (local for now)
+function CollapsibleCard({ title, children, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border rounded-lg mb-4 bg-white">
+      <div
+        className="flex items-center justify-between px-4 py-2 cursor-pointer select-none"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <div className="font-semibold">{title}</div>
+        {open ? <ChevronDown /> : <ChevronRight />}
+      </div>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  );
+}
+
 export default function OrganizationDetails() {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
@@ -55,6 +73,7 @@ export default function OrganizationDetails() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditContactDialogOpen, setIsEditContactDialogOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -265,8 +284,20 @@ export default function OrganizationDetails() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
-              <CardDescription>Primary contact details for the organization</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Contact Information</CardTitle>
+                  <CardDescription>Primary contact details for the organization</CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsEditContactDialogOpen(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -356,10 +387,12 @@ export default function OrganizationDetails() {
           </CardContent>
         </Card>
 
-        <OrganizationGroupChat 
-          organizationId={organization.id}
-          organizationName={organization.name}
-        />
+        <CollapsibleCard title="Organization Chat" defaultOpen={false}>
+          <OrganizationGroupChat 
+            organizationId={organization.id}
+            organizationName={organization.name}
+          />
+        </CollapsibleCard>
 
         <div className="flex justify-end space-x-4">
           <Button 
@@ -385,6 +418,21 @@ export default function OrganizationDetails() {
           </Button>
         </div>
       </div>
+      
+      {/* Edit Contact Dialog */}
+      {organization && (
+        <EditContactDialog
+          open={isEditContactDialogOpen}
+          onOpenChange={setIsEditContactDialogOpen}
+          organizationId={organization.id}
+          initialData={{
+            contact_person: organization.contact_person,
+            contact_email: organization.contact_email,
+            contact_phone: organization.contact_phone
+          }}
+          onContactUpdated={loadOrganizationData}
+        />
+      )}
       
       {/* Deactivate Organization Dialog */}
       <AlertDialog 

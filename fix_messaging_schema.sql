@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Drop all existing conversation-related tables and recreate them 
 -- to ensure consistent schema (UNCOMMENT THIS BLOCK IF NEEDED)
-/*
+
 DO $$
 BEGIN
   -- Drop views first
@@ -22,7 +22,7 @@ BEGIN
   RAISE NOTICE 'Dropped existing messaging tables for a clean rebuild';
 END
 $$;
-*/
+
 
 -- Check if conversations table exists and has the required columns
 DO $$

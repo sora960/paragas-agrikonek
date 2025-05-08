@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CropManagement from "@/components/farmer/CropManagement";
 import ResourceManagement from "@/components/farmer/ResourceManagement";
 import FieldReporting from "@/components/farmer/FieldReporting";
+import OrganizationAccess from "@/components/farmer/OrganizationAccess";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   BarChart, 
@@ -106,6 +107,8 @@ export default function FarmerDashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            <OrganizationAccess />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
               <Card className="col-span-4">

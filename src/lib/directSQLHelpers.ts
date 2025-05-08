@@ -76,6 +76,18 @@ export async function setupDatabaseTables() {
           CONSTRAINT unique_region_budget UNIQUE (region_id, fiscal_year)
         );
 
+        -- Create organization_budgets table
+        CREATE TABLE IF NOT EXISTS organization_budgets (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          organization_id UUID REFERENCES organizations(id),
+          fiscal_year INTEGER NOT NULL,
+          total_allocation NUMERIC(15, 2) DEFAULT 0,
+          remaining_balance NUMERIC(15, 2) DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          CONSTRAINT unique_org_budget UNIQUE (organization_id, fiscal_year)
+        );
+
         -- Create budget_allocations table
         CREATE TABLE IF NOT EXISTS annual_budgets (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,6 +123,7 @@ export async function setupDatabaseTables() {
         ALTER TABLE regions ENABLE ROW LEVEL SECURITY;
         ALTER TABLE provinces ENABLE ROW LEVEL SECURITY;
         ALTER TABLE region_budgets ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE organization_budgets ENABLE ROW LEVEL SECURITY;
         ALTER TABLE annual_budgets ENABLE ROW LEVEL SECURITY;
         ALTER TABLE agricultural_data ENABLE ROW LEVEL SECURITY;
 
@@ -148,6 +161,15 @@ export async function setupDatabaseTables() {
           
         DROP POLICY IF EXISTS "Allow insert/update/delete for admins" ON region_budgets;
         CREATE POLICY "Allow insert/update/delete for admins" ON region_budgets
+          FOR ALL USING (check_is_admin_or_superadmin());
+
+        -- Create policies for organization_budgets
+        DROP POLICY IF EXISTS "Allow select for all" ON organization_budgets;
+        CREATE POLICY "Allow select for all" ON organization_budgets
+          FOR SELECT USING (true);
+          
+        DROP POLICY IF EXISTS "Allow insert/update/delete for admins" ON organization_budgets;
+        CREATE POLICY "Allow insert/update/delete for admins" ON organization_budgets
           FOR ALL USING (check_is_admin_or_superadmin());
 
         -- Create policies for annual_budgets

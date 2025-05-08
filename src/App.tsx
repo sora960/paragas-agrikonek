@@ -49,6 +49,9 @@ import Organization from "./pages/farmer/Organization";
 import Apply from "./pages/farmer/Apply";
 import FarmerMessaging from "./pages/farmer/FarmerMessaging";
 import TestAuthFunctions from "./lib/TestAuthFunctions";
+import BudgetManagement from "./pages/BudgetManagement";
+import RegionalBudgetManagement from "./pages/RegionalBudgetManagement";
+import RegionView from "./pages/RegionView";
 
 const queryClient = new QueryClient();
 
@@ -112,7 +115,7 @@ const App = () => {
                     path="/superadmin/regions" 
                     element={
                       <ProtectedRoute allowedRoles={["superadmin"]}>
-                        <RegionsManager />
+                        <SuperAdminRegions />
                       </ProtectedRoute>
                     } 
                   />
@@ -164,6 +167,22 @@ const App = () => {
                       </ProtectedRoute>
                     } 
                   />
+                  <Route 
+                    path="/superadmin/budget-management" 
+                    element={
+                      <ProtectedRoute allowedRoles={["superadmin"]}>
+                        <BudgetManagement />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/superadmin/region-search" 
+                    element={
+                      <ProtectedRoute allowedRoles={["superadmin"]}>
+                        <RegionsManager />
+                      </ProtectedRoute>
+                    } 
+                  />
                   
                   {/* Regional Admin routes */}
                   <Route 
@@ -179,6 +198,14 @@ const App = () => {
                     element={
                       <ProtectedRoute allowedRoles={["regional_admin"]}>
                         <RegionalDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/regional/budget-management" 
+                    element={
+                      <ProtectedRoute allowedRoles={["regional_admin"]}>
+                        <RegionalBudgetManagement />
                       </ProtectedRoute>
                     } 
                   />
@@ -229,7 +256,7 @@ const App = () => {
                   <Route 
                     path="/organization" 
                     element={
-                      <ProtectedRoute allowedRoles={["org_admin", "organization_admin"]}>
+                      <ProtectedRoute allowedRoles={["org_admin", "organization_admin", "farmer"]}>
                         <OrganizationDashboard />
                       </ProtectedRoute>
                     } 
@@ -237,7 +264,7 @@ const App = () => {
                   <Route 
                     path="/organization/profile" 
                     element={
-                      <ProtectedRoute allowedRoles={["org_admin"]}>
+                      <ProtectedRoute allowedRoles={["org_admin", "organization_admin", "farmer"]}>
                         <OrganizationProfile />
                       </ProtectedRoute>
                     } 
@@ -245,7 +272,7 @@ const App = () => {
                   <Route 
                     path="/organization/members" 
                     element={
-                      <ProtectedRoute allowedRoles={["org_admin"]}>
+                      <ProtectedRoute allowedRoles={["org_admin", "organization_admin", "farmer"]}>
                         <OrganizationMembers />
                       </ProtectedRoute>
                     } 
@@ -346,6 +373,23 @@ const App = () => {
                   <Route 
                     path="/test-auth" 
                     element={<TestAuthFunctions />} 
+                  />
+                  
+                  <Route 
+                    path="/superadmin/regions/budget/:regionId" 
+                    element={
+                      <ProtectedRoute allowedRoles={["superadmin"]}>
+                        <RegionalBudgetManagement />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/superadmin/regions/:regionId" 
+                    element={
+                      <ProtectedRoute allowedRoles={["superadmin"]}>
+                        <RegionView />
+                      </ProtectedRoute>
+                    } 
                   />
                   
                   <Route path="*" element={<NotFound />} />

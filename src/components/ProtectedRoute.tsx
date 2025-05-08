@@ -1,4 +1,3 @@
-
 import { useAuth } from "@/lib/AuthContext";
 import { Navigate, useLocation } from "react-router-dom";
 
@@ -26,8 +25,19 @@ export function ProtectedRoute({
 
   // Check user role if roles are specified
   const role = user.role || userRole;
-  if (allowedRoles.length > 0 && role && !allowedRoles.includes(role)) {
-    return <Navigate to="/unauthorized" replace />;
+  
+  if (allowedRoles.length > 0 && role) {
+    // Map roles for compatibility
+    const normalizedRole = role === "regional_admin" ? "regional" : 
+                          role === "organization_admin" ? "org_admin" : role;
+    
+    // Check if the user's role (or its normalized version) is allowed
+    const hasPermission = allowedRoles.includes(role) || 
+                         allowedRoles.includes(normalizedRole);
+    
+    if (!hasPermission) {
+      return <Navigate to="/unauthorized" replace />;
+    }
   }
 
   return <>{children}</>;

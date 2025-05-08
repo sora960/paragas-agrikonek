@@ -456,5 +456,123 @@ export const organizationService = {
       console.error("Exception getting next registration number:", error);
       return "1"; // Default to 1 if there's an exception
     }
+  },
+
+  // Get organization for a farmer member (for direct access)
+  async getOrganizationForMember(userId: string): Promise<{ id: string; name: string } | null> {
+    try {
+      // First check if this user is a farmer
+      const { data: farmerProfile, error: farmerError } = await supabase
+        .from('farmer_profiles')
+        .select('id, organization_id')
+        .eq('user_id', userId)
+        .single();
+        
+      if (farmerError) {
+        console.error("Error fetching farmer profile:", farmerError);
+        return null;
+      }
+      
+      // If the farmer has an organization_id directly in their profile
+      if (farmerProfile?.organization_id) {
+        const { data: org, error: orgError } = await supabase
+          .from('organizations')
+          .select('id, name')
+          .eq('id', farmerProfile.organization_id)
+          .single();
+          
+        if (orgError) {
+          console.error("Error fetching organization:", orgError);
+          return null;
+        }
+        
+        return org;
+      }
+      
+      // If not found in profile, check organization_members table
+      if (farmerProfile?.id) {
+        const { data: membership, error: membershipError } = await supabase
+          .from('organization_members')
+          .select('organization_id, organizations:organization_id(id, name)')
+          .eq('farmer_id', farmerProfile.id)
+          .eq('status', 'active')
+          .single();
+          
+        if (membershipError) {
+          console.error("Error fetching membership:", membershipError);
+          return null;
+        }
+        
+        if (membership?.organizations) {
+          return {
+            id: membership.organizations.id,
+            name: membership.organizations.name
+          };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error("Exception getting organization for member:", error);
+      return null;
+    }
+  },
+
+  // Get organizations managed by an admin
+  async getOrganizationByAdmin(userId: string): Promise<Array<{ id: string; name: string }>> {
+    try {
+      const { data, error } = await supabase
+        .from('organization_admins')
+        .select(`
+          organization_id,
+          organizations:organization_id (
+            id,
+            name
+          )
+        `)
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error("Error fetching admin organizations:", error);
+        return [];
+      }
+      
+      return data.map(item => ({
+        id: item.organizations.id,
+        name: item.organizations.name
+      }));
+    } catch (error) {
+      console.error("Exception getting admin organizations:", error);
+      return [];
+    }
+  },
+
+  async updateOrganization(
+    id: string, 
+    updates: Partial<{
+      name: string;
+      address: string;
+      contact_person: string;
+      contact_email: string;
+      contact_phone: string;
+      description: string;
+      status: 'pending' | 'active' | 'inactive';
+    }>
+  ): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('organizations')
+        .update(updates)
+        .eq('id', id);
+      
+      if (error) {
+        console.error("Error updating organization:", error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Exception updating organization:", error);
+      return false;
+    }
   }
 }; 

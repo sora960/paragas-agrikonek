@@ -18,6 +18,7 @@ import {
   UserPlus,
   Building,
   Megaphone,
+  Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMessaging } from "@/hooks/useMessaging";
@@ -59,6 +60,8 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
     superadmin: [
       { label: "Dashboard", path: "/superadmin", icon: LayoutDashboard },
       { label: "Regions", path: "/superadmin/regions", icon: Map },
+      { label: "Region Search", path: "/superadmin/region-search", icon: Search },
+      { label: "Budget Management", path: "/superadmin/budget-management", icon: DollarSign },
       { label: "Organizations", path: "/superadmin/organizations", icon: Building2 },
       { label: "User Management", path: "/admin/user-management", icon: Users },
       { label: "Reports", path: "/superadmin/reports", icon: BarChart3 },
@@ -67,6 +70,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
     regional: [
       { label: "Dashboard", path: "/regional", icon: LayoutDashboard },
       { label: "Organizations", path: "/regional/organizations", icon: Building2 },
+      { label: "Budget Management", path: "/regional/budget-management", icon: DollarSign },
       { label: "Farmers", path: "/regional/farmers", icon: Users },
       { label: "Crops", path: "/regional/crops", icon: Wheat },
       { label: "Reports", path: "/regional/reports", icon: BarChart3 },

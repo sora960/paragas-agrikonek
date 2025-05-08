@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { useToast } from "@/components/ui/use-toast";
+import { organizationService } from "@/services/organizationService";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 const organizationSchema = z.object({
   name: z.string().min(2, "Organization name must be at least 2 characters"),
@@ -22,9 +26,27 @@ const organizationSchema = z.object({
 
 type OrganizationFormValues = z.infer<typeof organizationSchema>;
 
+// Extended organization interface to match what we get from the database
+interface OrganizationDetails {
+  id: string;
+  name: string;
+  registration_number?: string;
+  address?: string;
+  contact_person?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  description?: string;
+  status: 'active' | 'inactive' | 'pending';
+  created_at: string;
+  updated_at: string;
+}
+
 export default function OrganizationProfile() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
   const form = useForm<OrganizationFormValues>({
     resolver: zodResolver(organizationSchema),
@@ -39,17 +61,89 @@ export default function OrganizationProfile() {
     },
   });
 
+  useEffect(() => {
+    if (user) {
+      loadOrganizationData();
+    }
+  }, [user]);
+
+  const loadOrganizationData = async () => {
+    try {
+      setIsLoadingData(true);
+      
+      // Get the organization that the current user is an admin of
+      const userOrgs = await organizationService.getOrganizationByAdmin(user?.id || "");
+      
+      if (userOrgs && userOrgs.length > 0) {
+        const orgId = userOrgs[0].id;
+        setOrganizationId(orgId);
+        
+        // Get full organization details directly from the database
+        const { data: organizationData, error } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('id', orgId)
+          .single<OrganizationDetails>();
+        
+        if (error) throw error;
+        
+        if (organizationData) {
+          // Set form values
+          form.reset({
+            name: organizationData.name || "",
+            registrationNumber: organizationData.registration_number || "",
+            address: organizationData.address || "",
+            contactPerson: organizationData.contact_person || "",
+            contactEmail: organizationData.contact_email || "",
+            contactPhone: organizationData.contact_phone || "",
+            description: organizationData.description || "",
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error loading organization:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load organization data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
   const onSubmit = async (data: OrganizationFormValues) => {
+    if (!organizationId) {
+      toast({
+        title: "Error",
+        description: "No organization found to update",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
       setIsLoading(true);
-      // TODO: Implement organization profile update logic
-      console.log("Organization data:", data);
       
-      toast({
-        title: "Profile Updated",
-        description: "Your organization profile has been updated successfully.",
+      const success = await organizationService.updateOrganization(organizationId, {
+        name: data.name,
+        address: data.address,
+        contact_person: data.contactPerson,
+        contact_email: data.contactEmail,
+        contact_phone: data.contactPhone,
+        description: data.description,
       });
+      
+      if (success) {
+        toast({
+          title: "Profile Updated",
+          description: "Your organization profile has been updated successfully.",
+        });
+      } else {
+        throw new Error("Failed to update organization profile");
+      }
     } catch (error) {
+      console.error("Error updating organization:", error);
       toast({
         title: "Error",
         description: "Failed to update organization profile. Please try again.",
@@ -59,6 +153,17 @@ export default function OrganizationProfile() {
       setIsLoading(false);
     }
   };
+
+  if (isLoadingData) {
+    return (
+      <DashboardLayout userRole="organization">
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="ml-2">Loading organization data...</span>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout userRole="organization">
