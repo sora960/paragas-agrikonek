@@ -106,11 +106,10 @@ export default function RegionalBudgetManagement() {
         
       if (orgError) throw orgError;
       
-      // Fetch organization budgets for selected year
+      // Fetch organization budgets - removed fiscal_year filter
       const { data: budgetData, error: budgetError } = await supabase
         .from("organization_budgets")
-        .select("id, organization_id, total_allocation")
-        .eq("fiscal_year", year);
+        .select("id, organization_id, total_allocation");
         
       if (budgetError) throw budgetError;
       
@@ -130,13 +129,11 @@ export default function RegionalBudgetManagement() {
       
       setOrganizations(merged);
       
-      // Fetch region budget for the year
+      // Fetch region budget - removed fiscal_year filter
       const { data: regionBudget, error: regionBudgetError } = await supabase
         .from("region_budgets")
         .select("amount")
         .eq("region_id", regionId)
-        // Remove fiscal_year filter to prevent errors
-        // .eq("fiscal_year", year)
         .single();
         
       if (!regionBudgetError && regionBudget) {
@@ -147,33 +144,12 @@ export default function RegionalBudgetManagement() {
       }
     } catch (err: any) {
       console.error("Error loading data:", err);
-      // Special handling for the fiscal_year column error
-      if (err.message && err.message.includes("fiscal_year does not exist")) {
-        // Try again without fiscal_year filter
-        try {
-          const { data: fallbackBudget } = await supabase
-            .from("region_budgets")
-            .select("amount")
-            .eq("region_id", regionId)
-            .single();
-            
-          if (fallbackBudget) {
-            setTotalBudget(fallbackBudget.amount);
-          } else {
-            setTotalBudget(0);
-          }
-        } catch (fallbackErr) {
-          console.error("Fallback query failed:", fallbackErr);
-          setTotalBudget(0);
-        }
-      } else {
-        setError(err.message || "Failed to load data");
-        toast({
-          title: "Error loading data",
-          description: err.message || "Failed to load budget data",
-          variant: "destructive"
-        });
-      }
+      setError(err.message || "Failed to load data");
+      toast({
+        title: "Error loading data",
+        description: err.message || "Failed to load budget data",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -190,38 +166,18 @@ export default function RegionalBudgetManagement() {
         .from("budget_allocations")
         .select("id, amount, note, created_at, allocated_by")
         .eq("organization_id", org.id)
-        // Remove fiscal_year filter to prevent errors
-        // .eq("fiscal_year", selectedYear)
         .order("created_at", { ascending: false });
         
       if (error) throw error;
       setAllocations(data || []);
     } catch (err: any) {
       console.error("Error loading allocation history:", err);
-      // Handle specific column error
-      if (err.message && err.message.includes("fiscal_year does not exist")) {
-        // Just show whatever allocations are available without the filter
-        try {
-          const { data: fallbackData } = await supabase
-            .from("budget_allocations")
-            .select("id, amount, note, created_at, allocated_by")
-            .eq("organization_id", org.id)
-            .order("created_at", { ascending: false });
-            
-          setAllocations(fallbackData || []);
-        } catch (fallbackErr) {
-          console.error("Fallback query failed:", fallbackErr);
-          setAllocations([]);
-          setError("Failed to load allocation history");
-        }
-      } else {
-        setError(err.message || "Failed to load allocation history");
-        toast({
-          title: "Error",
-          description: "Failed to load allocation history",
-          variant: "destructive"
-        });
-      }
+      setError(err.message || "Failed to load allocation history");
+      toast({
+        title: "Error",
+        description: "Failed to load allocation history",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -230,22 +186,20 @@ export default function RegionalBudgetManagement() {
   // Helper to get or create organization budget
   const getOrCreateOrgBudget = async (orgId: string) => {
     try {
-      // Try to fetch the budget for this organization and year
+      // Try to fetch the budget for this organization - removed fiscal_year filter
       const { data, error } = await supabase
         .from("organization_budgets")
         .select("id, total_allocation")
         .eq("organization_id", orgId)
-        .eq("fiscal_year", selectedYear)
         .single();
         
       if (data) return data;
       
-      // If not found, create it
+      // If not found, create it - removed fiscal_year field
       const { data: created, error: createError } = await supabase
         .from("organization_budgets")
         .insert([{ 
           organization_id: orgId, 
-          fiscal_year: selectedYear, 
           total_allocation: 0,
           utilized_amount: 0,
           remaining_amount: 0
@@ -256,31 +210,7 @@ export default function RegionalBudgetManagement() {
       if (createError) throw createError;
       return created;
     } catch (err: any) {
-      // Handle fiscal_year column error
-      if (err.message && err.message.includes("fiscal_year does not exist")) {
-        // Try again without fiscal_year
-        const { data: fallbackData } = await supabase
-          .from("organization_budgets")
-          .select("id, total_allocation")
-          .eq("organization_id", orgId)
-          .single();
-          
-        if (fallbackData) return fallbackData;
-        
-        // If not found, create without fiscal_year
-        const { data: fallbackCreated } = await supabase
-          .from("organization_budgets")
-          .insert([{ 
-            organization_id: orgId, 
-            total_allocation: 0,
-            utilized_amount: 0,
-            remaining_amount: 0
-          }])
-          .select("id, total_allocation")
-          .single();
-          
-        return fallbackCreated;
-      }
+      console.error("Error getting or creating organization budget:", err);
       throw err;
     }
   };
@@ -411,28 +341,52 @@ export default function RegionalBudgetManagement() {
   // Add function to load organization budget requests
   const loadOrgRequests = async () => {
     try {
-      const { data, error } = await supabase
+      // First check if the table exists
+      const { error: tableCheckError } = await supabase
         .from("organization_budget_requests")
-        .select(`
-          *,
-          organizations (
-            id,
-            name,
-            status
-          )
-        `)
+        .select("count")
+        .limit(1);
+        
+      // If table doesn't exist, just set empty array and don't show error
+      if (tableCheckError && tableCheckError.message.includes("does not exist")) {
+        console.log("Organization budget requests table does not exist yet");
+        setOrgRequests([]);
+        return;
+      }
+      
+      // If table exists, proceed with query
+      const { data: requestsData, error: requestsError } = await supabase
+        .from("organization_budget_requests")
+        .select("*")
         .eq("region_id", region?.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setOrgRequests(data || []);
+      if (requestsError) throw requestsError;
+      
+      if (requestsData && requestsData.length > 0) {
+        // Get organization details separately
+        const orgIds = [...new Set(requestsData.map(req => req.organization_id))];
+        const { data: orgsData, error: orgsError } = await supabase
+          .from("organizations")
+          .select("id, name, status")
+          .in("id", orgIds);
+          
+        if (orgsError) throw orgsError;
+        
+        // Combine the data
+        const combinedData = requestsData.map(req => ({
+          ...req,
+          organizations: orgsData?.find(org => org.id === req.organization_id) || null
+        }));
+        
+        setOrgRequests(combinedData);
+      } else {
+        setOrgRequests([]);
+      }
     } catch (err: any) {
       console.error("Error loading organization requests:", err);
-      toast({
-        title: "Error",
-        description: "Failed to load organization budget requests",
-        variant: "destructive"
-      });
+      // Don't show error toast since the table might not exist yet
+      setOrgRequests([]);
     }
   };
 
@@ -460,7 +414,6 @@ export default function RegionalBudgetManagement() {
             .from("organization_budgets")
             .upsert({
               organization_id: request.organization_id,
-              fiscal_year: selectedYear,
               total_allocation: request.requested_amount,
               remaining_amount: request.requested_amount
             });
@@ -536,7 +489,7 @@ export default function RegionalBudgetManagement() {
             <div className="grid gap-4 md:grid-cols-3">
               <Card>
                 <CardHeader>
-                  <CardTitle>Total Region Budget</CardTitle>
+                  <CardTitle>Total Budget</CardTitle>
                   <CardDescription>Fiscal Year {selectedYear}</CardDescription>
                 </CardHeader>
                 <CardContent>

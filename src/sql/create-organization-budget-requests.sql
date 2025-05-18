@@ -44,84 +44,173 @@ CREATE POLICY admin_notifications_policy ON notifications
     )
   );
 
--- Check if the table exists before creating it
-CREATE TABLE IF NOT EXISTS organization_budget_requests (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  region_id UUID NOT NULL REFERENCES regions(id) ON DELETE CASCADE,
-  requested_amount DECIMAL NOT NULL,
-  approved_amount DECIMAL,
-  reason TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending', -- pending, approved, rejected
-  request_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  approval_date TIMESTAMP WITH TIME ZONE,
-  approved_by UUID REFERENCES auth.users(id),
-  notes TEXT,
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+-- Create organization_budget_requests table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.organization_budget_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  region_id UUID NOT NULL REFERENCES public.regions(id) ON DELETE CASCADE,
+  requested_amount DECIMAL NOT NULL DEFAULT 0,
+  reason TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  response TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id),
+  processed_at TIMESTAMP WITH TIME ZONE,
+  processed_by UUID REFERENCES auth.users(id)
 );
 
--- Add indexes
-CREATE INDEX IF NOT EXISTS idx_org_budget_requests_org_id ON organization_budget_requests(organization_id);
-CREATE INDEX IF NOT EXISTS idx_org_budget_requests_region_id ON organization_budget_requests(region_id);
-CREATE INDEX IF NOT EXISTS idx_org_budget_requests_status ON organization_budget_requests(status);
+-- Enable RLS for the table
+ALTER TABLE public.organization_budget_requests ENABLE ROW LEVEL SECURITY;
 
--- Grant access
-ALTER TABLE organization_budget_requests ENABLE ROW LEVEL SECURITY;
+-- Grant permissions to authenticated users
+GRANT ALL ON public.organization_budget_requests TO authenticated;
+GRANT ALL ON public.organization_budget_requests TO service_role;
 
-GRANT ALL ON organization_budget_requests TO service_role;
-GRANT SELECT, INSERT ON organization_budget_requests TO authenticated;
+-- Create security policies for organization_budget_requests
+-- Organizations can view their own requests
+DROP POLICY IF EXISTS "Organizations can view their own requests" ON public.organization_budget_requests;
+CREATE POLICY "Organizations can view their own requests" 
+ON public.organization_budget_requests 
+FOR SELECT 
+TO authenticated 
+USING (
+  -- Organization admins can view their org's requests
+  organization_id IN (
+    SELECT o.id FROM organizations o
+    JOIN organization_members om ON o.id = om.organization_id
+    WHERE om.user_id = auth.uid() AND om.role = 'admin'
+  )
+);
 
--- Create RLS policies
+-- Organizations can create their own requests
+DROP POLICY IF EXISTS "Organizations can create their own requests" ON public.organization_budget_requests;
+CREATE POLICY "Organizations can create their own requests" 
+ON public.organization_budget_requests 
+FOR INSERT 
+TO authenticated 
+WITH CHECK (
+  -- Organization admins can create requests for their org
+  organization_id IN (
+    SELECT o.id FROM organizations o
+    JOIN organization_members om ON o.id = om.organization_id
+    WHERE om.user_id = auth.uid() AND om.role = 'admin'
+  )
+);
 
--- Organization admins can view and create requests for their own organization
-CREATE POLICY organization_admins_policy ON organization_budget_requests
-  FOR ALL
-  TO authenticated
-  USING (
-    EXISTS (
-      -- Direct query instead of using organization_admins_view
-      (
-        -- Direct admin through organization_admins table
-        SELECT 1 FROM organization_admins
-        WHERE user_id = auth.uid()
-        AND organization_id = organization_budget_requests.organization_id
-      )
-      UNION ALL
-      (
-        -- Member admin through organization_members and farmer_profiles
-        SELECT 1 FROM organization_members om
-        JOIN farmer_profiles fp ON om.farmer_id = fp.id
-        WHERE fp.user_id = auth.uid()
-        AND om.organization_id = organization_budget_requests.organization_id
-        AND om.role = 'org_admin'
-      )
-    )
-  );
+-- Regional admins can view requests for their region
+DROP POLICY IF EXISTS "Regional admins can view requests for their region" ON public.organization_budget_requests;
+CREATE POLICY "Regional admins can view requests for their region" 
+ON public.organization_budget_requests 
+FOR SELECT 
+TO authenticated 
+USING (
+  -- Regional admins can view requests in their region
+  region_id IN (
+    SELECT region_id FROM user_regions
+    WHERE user_id = auth.uid() AND role = 'admin'
+  )
+);
 
--- Region admins can view and approve requests for their region
-CREATE POLICY region_admins_policy ON organization_budget_requests
-  FOR ALL
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM region_admins
-      WHERE user_id = auth.uid()
-      AND region_id = organization_budget_requests.region_id
-    )
-  );
+-- Regional admins can update requests for their region
+DROP POLICY IF EXISTS "Regional admins can process requests for their region" ON public.organization_budget_requests;
+CREATE POLICY "Regional admins can process requests for their region" 
+ON public.organization_budget_requests 
+FOR UPDATE 
+TO authenticated 
+USING (
+  -- Regional admins can process requests in their region
+  region_id IN (
+    SELECT region_id FROM user_regions
+    WHERE user_id = auth.uid() AND role = 'admin'
+  )
+);
 
--- Super admins can view and manage all requests
-CREATE POLICY super_admins_policy ON organization_budget_requests
-  FOR ALL
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM auth.users
-      WHERE id = auth.uid()
-      AND (role = 'super_admin' OR role = 'admin')
-    )
-  );
+-- Super admins can do everything
+DROP POLICY IF EXISTS "Super admins can manage all requests" ON public.organization_budget_requests;
+CREATE POLICY "Super admins can manage all requests" 
+ON public.organization_budget_requests 
+FOR ALL 
+TO authenticated 
+USING (
+  -- Check if user is a super admin
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE id = auth.uid() AND role = 'superadmin'
+  )
+);
+
+-- Add function to process budget requests
+CREATE OR REPLACE FUNCTION process_organization_budget_request(
+  p_request_id UUID,
+  p_status TEXT,
+  p_response TEXT DEFAULT NULL
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_request organization_budget_requests%ROWTYPE;
+  v_exists BOOLEAN;
+BEGIN
+  -- Check if the request exists
+  SELECT EXISTS (
+    SELECT 1 FROM organization_budget_requests
+    WHERE id = p_request_id
+  ) INTO v_exists;
+  
+  IF NOT v_exists THEN
+    RAISE EXCEPTION 'Budget request not found';
+  END IF;
+  
+  -- Get the request data
+  SELECT * FROM organization_budget_requests
+  WHERE id = p_request_id
+  INTO v_request;
+  
+  -- Update the request status
+  UPDATE organization_budget_requests
+  SET 
+    status = p_status,
+    response = p_response,
+    processed_at = NOW(),
+    processed_by = auth.uid()
+  WHERE id = p_request_id;
+  
+  -- If approved, update the organization's budget
+  IF p_status = 'approved' THEN
+    -- Check if the organization budget exists
+    SELECT EXISTS (
+      SELECT 1 FROM organization_budgets
+      WHERE organization_id = v_request.organization_id
+    ) INTO v_exists;
+    
+    IF v_exists THEN
+      -- Update existing budget
+      UPDATE organization_budgets
+      SET 
+        total_allocation = total_allocation + v_request.requested_amount,
+        remaining_amount = remaining_amount + v_request.requested_amount
+      WHERE organization_id = v_request.organization_id;
+    ELSE
+      -- Create new budget entry
+      INSERT INTO organization_budgets (
+        organization_id,
+        total_allocation,
+        utilized_amount,
+        remaining_amount
+      ) VALUES (
+        v_request.organization_id,
+        v_request.requested_amount,
+        0,
+        v_request.requested_amount
+      );
+    END IF;
+  END IF;
+  
+  RETURN TRUE;
+END;
+$$;
 
 -- Create or replace a function to approve organization budget requests
 CREATE OR REPLACE FUNCTION approve_organization_budget_request(

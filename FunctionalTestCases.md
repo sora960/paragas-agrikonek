@@ -55,6 +55,14 @@
 | 2 | Create New Organization | Fill organization creation form and submit | Organization is created successfully | Organization created and confirmation shown | Organization appears in organization list | All required fields validated | Pass |
 | 3 | Manage Regions | Access Region Management page | List of all regions displays | Region list displayed correctly | Admin can modify region settings | Map view displays correctly | Pass |
 | 4 | System Configuration | Access Settings page | System settings display | Settings page loaded with all options | Admin can modify system parameters | Changes save and apply immediately | Pass |
+| 5 | Approve Regional Budget Requests | Navigate to Budget Requests page and select a request | Budget approval interface displays | Approval interface loaded correctly | Regional budget request status updated | Notification sent to regional admin | Not Tested |
+| 6 | Assign User Roles | Select user and click "Change Role" | Role selection dialog appears | Dialog displayed with all roles | User's role is updated in the system | User permissions updated immediately | Not Tested |
+| 7 | View System Audit Logs | Access Audit Logs section | Comprehensive log of system actions displays | Logs displayed with filtering options | Admin can export and analyze logs | Date range and user filters working | Not Tested |
+| 8 | Manage Global Announcements | Create system-wide announcement | Announcement published to all users | Announcement visible across all dashboards | All users can view the announcement | Priority setting functional | Not Tested |
+| 9 | View System Analytics | Access Analytics Dashboard | System-wide usage metrics display | Analytics loaded with accurate data | Admin can generate reports from data | Charts and filters functioning | Not Tested |
+| 10 | Manage Organization Budget Allocations | Access Budget Allocation page | Budget allocation interface loads | Interface displayed with current allocations | Admin can adjust budget allocations | Changes reflect in organization accounts | Not Tested |
+| 11 | Delete/Deactivate Organization | Select organization and click "Deactivate" | Confirmation dialog appears | Dialog displayed with warnings | Organization status changed | Associated users notified | Not Tested |
+| 12 | Reset User Password | Select user and click "Reset Password" | Password reset confirmation appears | Confirmation displayed | Reset link sent to user | User must change password on next login | Not Tested |
 
 ### 6. Password Recovery
 

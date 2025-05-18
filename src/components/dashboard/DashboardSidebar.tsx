@@ -98,11 +98,10 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
     regional: [
       { label: "Dashboard", path: "/regional", icon: LayoutDashboard },
       { label: "Organizations", path: "/regional/organizations", icon: Building },
-      { label: "Farmers", path: "/regional/farmers", icon: Users },
       { label: "Budget Center", path: "/regional/budget-center", icon: Wallet },
       { label: "Budget Management", path: "/regional/budget-management", icon: Banknote },
       { label: "Request Budget", path: "/regional/request-budget", icon: CircleDollarSign },
-      { label: "Messages", path: "/regional/messages", icon: MessageCircle },
+      { label: "Org Messages", path: "/regional/org-messages", icon: Building2 },
       { label: "Settings", path: "/regional/settings", icon: Settings },
     ],
     organization: [
@@ -225,26 +224,6 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
             </Link>
           );
         })}
-
-        {/* Messaging link for superadmin and regional roles - uses the generic /messages path */}
-        {normalizedRole === "regional" && (
-          <Link
-            to="/messages"
-            className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-              location.pathname === "/messages" 
-                ? "bg-primary/10 text-primary font-medium" 
-                : "hover:bg-primary/10 text-foreground hover:text-primary"
-            }`}
-          >
-            <MessageCircle className="h-4 w-4" />
-            <span>Messages</span>
-            {unreadCount > 0 && (
-              <Badge variant="secondary" className="ml-auto text-xs">
-                {unreadCount}
-              </Badge>
-            )}
-          </Link>
-        )}
       </nav>
       
       <div className="mt-auto pt-4">

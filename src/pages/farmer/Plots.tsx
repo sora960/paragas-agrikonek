@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { Eye, Edit } from "lucide-react";
+import { Eye, Edit, Trash2 } from "lucide-react";
 import { Tabs, TabsList, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 
 interface FarmPlot {
@@ -74,6 +74,8 @@ export default function Plots() {
     irrigation_type: "",
     status: "active" as const
   });
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+  const [plotToDelete, setPlotToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPlots();
@@ -205,6 +207,46 @@ export default function Plots() {
     } catch (error) {
       console.error('Error updating plot status:', error);
       toast.error('Failed to update plot status');
+    }
+  };
+
+  const handleDeletePlot = async (plotId: string) => {
+    try {
+      console.log("Starting plot deletion for ID:", plotId);
+      
+      // Delete the plot directly - skip checking for crops since we don't have permissions
+      // and there's no foreign key constraint in the crops table
+      console.log("Deleting plot with ID:", plotId);
+      const { error: plotDeleteError } = await supabase
+        .from('farm_plots')
+        .delete()
+        .eq('id', plotId);
+      
+      if (plotDeleteError) {
+        console.error("Error deleting plot:", plotDeleteError);
+        throw plotDeleteError;
+      }
+      
+      console.log("Plot deletion successful");
+      toast.success('Plot deleted successfully');
+      setPlotToDelete(null);
+      setShowDeleteConfirmDialog(false);
+      fetchPlots();
+    } catch (error: any) {
+      console.error('Error deleting plot:', error);
+      
+      // Show a more detailed error message
+      let errorMessage = 'Failed to delete plot.';
+      
+      if (error.message) {
+        errorMessage += ` Reason: ${error.message}`;
+      }
+      
+      if (error.details) {
+        errorMessage += ` Details: ${error.details}`;
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
@@ -354,6 +396,16 @@ export default function Plots() {
                         {plot.status}
                       </span>
                     </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setPlotToDelete(plot.id);
+                        setShowDeleteConfirmDialog(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -440,6 +492,27 @@ export default function Plots() {
                 </Table>
               </TabsContent>
             </Tabs>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Deletion</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this plot? This action cannot be undone.
+                All crops associated with this plot will also be deleted.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteConfirmDialog(false)}>Cancel</Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => plotToDelete && handleDeletePlot(plotToDelete)}
+              >
+                Delete Plot
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>

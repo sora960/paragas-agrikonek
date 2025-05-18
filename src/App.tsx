@@ -64,6 +64,8 @@ import BudgetCenter from "./pages/regional/budget-center";
 import FarmerCalendar from "./pages/farmer/Calendar";
 import Resources from "./pages/farmer/Resources";
 import Weather from "./pages/farmer/Weather";
+import RegionalSettings from "./pages/regional/Settings";
+import RegionalOrganizationMessaging from "./pages/regional/RegionalOrganizationMessaging";
 
 const queryClient = new QueryClient();
 
@@ -242,7 +244,25 @@ const App = () => {
                     path="/regional/budget-management" 
                     element={
                       <ProtectedRoute allowedRoles={["regional_admin"]}>
-                        <BudgetManagement />
+                        <RegionalBudgetManagement />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
+                  <Route 
+                    path="/regional/org-messages" 
+                    element={
+                      <ProtectedRoute allowedRoles={["regional_admin"]}>
+                        <RegionalOrganizationMessaging />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
+                  <Route 
+                    path="/regional/settings" 
+                    element={
+                      <ProtectedRoute allowedRoles={["regional_admin"]}>
+                        <RegionalSettings />
                       </ProtectedRoute>
                     } 
                   />
@@ -358,7 +378,7 @@ const App = () => {
                   <Route 
                     path="/organization/budget-center" 
                     element={
-                      <ProtectedRoute allowedRoles={["org_admin"]}>
+                      <ProtectedRoute allowedRoles={["org_admin", "organization_admin"]}>
                         <OrganizationBudgetCenter />
                       </ProtectedRoute>
                     } 

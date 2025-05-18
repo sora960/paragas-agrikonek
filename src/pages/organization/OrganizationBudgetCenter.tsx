@@ -328,7 +328,13 @@ export default function OrganizationBudgetCenter() {
         throw requestError;
       }
       
-      setPendingRequests(requestData || []);
+      // Ensure requestData is an array before setting state
+      if (Array.isArray(requestData)) {
+        setPendingRequests(requestData);
+      } else {
+        console.log("Request data is not an array:", requestData);
+        setPendingRequests([]);
+      }
     } catch (err: any) {
       console.error("Error fetching pending requests:", err);
       setPendingRequests([]);
@@ -492,14 +498,14 @@ export default function OrganizationBudgetCenter() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {pendingRequests.length === 0 ? (
+              {!pendingRequests || pendingRequests.length === 0 ? (
                 <div className="bg-muted/40 rounded-md p-6 text-center">
                   <Wallet className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-muted-foreground">No pending budget requests</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {pendingRequests.map((request) => (
+                  {Array.isArray(pendingRequests) && pendingRequests.map((request) => (
                     <div key={request.id} className="border rounded-md p-3 space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="font-medium">₱{request.requested_amount.toLocaleString()}</span>
