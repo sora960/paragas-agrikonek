@@ -5,11 +5,14 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Building, Users, Mail, Phone, MapPin, Crown } from "lucide-react";
+import { 
+  Loader2, Building, Users, Mail, Phone, MapPin, Crown, 
+  ArrowLeft, ArrowRight, UserPlus 
+} from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { createNotification } from "@/services/notificationService";
+import { Link, useNavigate } from "react-router-dom";
 
 interface Organization {
   id: string;
@@ -55,6 +58,7 @@ interface FarmerProfile {
 
 export default function Organization() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState("overview");
@@ -229,62 +233,80 @@ export default function Organization() {
 
   const acceptInvitation = async (invitationId: string) => {
     try {
-      if (!pendingOrganization) {
-        throw new Error("Organization information not found");
+      const { data, error } = await supabase
+        .from("organization_members")
+        .update({
+          status: "active",
+          join_date: new Date().toISOString(),
+        })
+        .eq("id", invitationId)
+        .select("organization_id, organizations:organization_id(name)")
+        .single();
+
+      if (error) {
+        console.error("Error accepting invitation:", error);
+        toast.error("Failed to accept invitation");
+        return;
       }
 
-      // Update the invitation status to active
-      const { error } = await supabase
-        .from("organization_members")
-        .update({ 
-          status: "active",
-          join_date: new Date().toISOString(), // Update join date
-          role: "member" // Ensure role is set
-        })
-        .eq("id", invitationId);
+      toast.success("You have successfully joined the organization");
+      
+      // Create a notification for organization admins
+      try {
+        // Insert notification directly
+        await supabase.from('notifications').insert({
+          title: "New Member Joined",
+          content: `A new farmer has accepted the invitation to join an organization.`,
+          type: "membership",
+          user_id: null, // Will be filled by a trigger or should be the organization admin ID
+          for_role: "organization_admin",
+          reference_id: data.organization_id,
+          created_at: new Date().toISOString(),
+          is_read: false
+        });
+      } catch (notifError) {
+        console.error("Error creating notification:", notifError);
+      }
 
-      if (error) throw error;
-
-      // Create notification for organization admin
-      await createNotification(
-        pendingOrganization.id, // Use organization ID as target for admin notification
-        `New Member Joined`,
-        `A farmer has accepted your invitation to join ${pendingOrganization.name}`,
-        'system', 
-        `/organization-admin/members?org=${pendingOrganization.id}`,
-        { organizationId: pendingOrganization.id, organizationName: pendingOrganization.name },
-        'medium'
-      );
-
-      toast.success("You have joined the organization");
-
-      // Refresh organization data
+      // Reload the page to show the active organization
+      setLoading(true);
       fetchOrganization();
     } catch (error: any) {
       console.error("Error accepting invitation:", error);
-      toast.error("Failed to accept invitation: " + error.message);
+      toast.error("Failed to accept invitation");
     }
   };
 
   const declineInvitation = async (invitationId: string) => {
     try {
-      // Delete the invitation
       const { error } = await supabase
         .from("organization_members")
-        .delete()
+        .update({
+          status: "rejected",
+        })
         .eq("id", invitationId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error declining invitation:", error);
+        toast.error("Failed to decline invitation");
+        return;
+      }
 
       toast.success("Invitation declined");
-      setPendingInvitations([]);
-      setPendingOrganization(null);
+      setPendingInvitations(prev => prev.filter(inv => inv.id !== invitationId));
       
-      // Refresh to check if there are other invitations
-      fetchOrganization();
+      // If there are other pending invitations, show the next one
+      if (pendingInvitations.length > 1) {
+        const nextInvitation = pendingInvitations.find(inv => inv.id !== invitationId);
+        if (nextInvitation) {
+          loadOrganizationDetails(nextInvitation.organization_id);
+        }
+      } else {
+        setPendingOrganization(null);
+      }
     } catch (error: any) {
       console.error("Error declining invitation:", error);
-      toast.error("Failed to decline invitation: " + error.message);
+      toast.error("Failed to decline invitation");
     }
   };
 
@@ -488,143 +510,254 @@ export default function Organization() {
   return (
     <DashboardLayout userRole="farmer">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">My Organization</h1>
-          <Button variant="outline" onClick={leaveOrganization}>
-            Leave Organization
-          </Button>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Organization</h1>
+            <p className="text-muted-foreground">Manage your organization membership</p>
+          </div>
+          {!organization && !pendingInvitations.length && (
+            <Button onClick={() => navigate("/farmer/apply")} className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Apply to Organization
+            </Button>
+          )}
         </div>
-        
-        <Tabs value={tabValue} onValueChange={setTabValue}>
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="members">Members</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="overview" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Building className="mr-2 h-5 w-5" />
-                  <span>{organization.name}</span>
-                  {membershipStatus === 'admin' && (
-                    <Badge className="ml-2" variant="outline">Admin</Badge>
-                  )}
-                </CardTitle>
-                <CardDescription>
-                  Registration Number: {organization.registration_number}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-medium">About</h3>
-                  <p className="text-muted-foreground">{organization.description || "No description available."}</p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-medium">Location</h3>
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>{organization.address || "Address not specified"}</span>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-[400px]">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : error ? (
+          <Card className="border-destructive">
+            <CardHeader>
+              <CardTitle className="text-destructive">Error</CardTitle>
+              <CardDescription>{error}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" onClick={() => navigate("/farmer/profile")}>
+                Complete Your Profile
+              </Button>
+            </CardContent>
+          </Card>
+        ) : organization ? (
+          // Show active organization
+          <>
+            <Tabs defaultValue="overview" value={tabValue} onValueChange={setTabValue}>
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="members">Members</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="overview" className="space-y-4 mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3">
+                      <Building className="h-6 w-6 text-primary" />
+                      {organization.name}
+                      <Badge>{organization.status}</Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      Registration: {organization.registration_number}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {organization.description && (
+                      <div>
+                        <h3 className="font-medium mb-2">About</h3>
+                        <p className="text-muted-foreground">{organization.description}</p>
+                      </div>
+                    )}
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="font-medium mb-2">Contact Information</h3>
+                        <ul className="space-y-2">
+                          {organization.contact_person && (
+                            <li className="flex items-center gap-2 text-sm">
+                              <Crown className="h-4 w-4 text-muted-foreground" />
+                              <span>{organization.contact_person}</span>
+                            </li>
+                          )}
+                          {organization.contact_email && (
+                            <li className="flex items-center gap-2 text-sm">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                              <span>{organization.contact_email}</span>
+                            </li>
+                          )}
+                          {organization.contact_phone && (
+                            <li className="flex items-center gap-2 text-sm">
+                              <Phone className="h-4 w-4 text-muted-foreground" />
+                              <span>{organization.contact_phone}</span>
+                            </li>
+                          )}
+                          {organization.address && (
+                            <li className="flex items-center gap-2 text-sm">
+                              <MapPin className="h-4 w-4 text-muted-foreground" />
+                              <span>{organization.address}</span>
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <h3 className="font-medium mb-2">Location</h3>
+                        <p className="text-sm">
+                          {organization.province_name && `${organization.province_name}, `}
+                          {organization.region_name || "Location not specified"}
+                        </p>
+                      </div>
                     </div>
-                    {(organization.province_name || organization.region_name) && (
-                      <div className="text-sm text-muted-foreground">
-                        {organization.province_name && organization.region_name 
-                          ? `${organization.province_name}, ${organization.region_name}`
-                          : organization.province_name || organization.region_name}
+
+                    <div>
+                      <h3 className="font-medium mb-2">Membership Status</h3>
+                      <Badge variant="outline">
+                        {membershipStatus === "admin" ? "Administrator" : 
+                         membershipStatus === "manager" ? "Manager" : "Member"}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex gap-4">
+                    <Button variant="outline" onClick={() => navigate("/farmer/announcements")}>
+                      View Announcements
+                    </Button>
+                    {membershipStatus !== "admin" && (
+                      <Button variant="destructive" onClick={leaveOrganization}>
+                        Leave Organization
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="members" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Organization Members</CardTitle>
+                    <CardDescription>
+                      Members of your organization
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {members.length === 0 ? (
+                      <div className="text-center py-10">
+                        <Users className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">No members found</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {members.map((member) => (
+                          <div key={member.id} className="flex items-center justify-between p-3 border rounded-md">
+                            <div className="flex items-center space-x-3">
+                              <Avatar className="h-10 w-10 bg-primary">
+                                <AvatarFallback>{getInitials(member.farmer.full_name)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <div className="font-medium flex items-center">
+                                  {member.farmer.full_name}
+                                  {member.role === 'admin' && (
+                                    <span className="ml-2 inline-flex items-center">
+                                      <Crown className="h-3 w-3 text-amber-500" />
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground">{member.farmer.farm_name}</div>
+                              </div>
+                            </div>
+                            <Badge variant={member.role === 'admin' ? "default" : "outline"}>
+                              {member.role === 'admin' ? 'Admin' : 'Member'}
+                            </Badge>
+                          </div>
+                        ))}
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-medium">Contact</h3>
-                    {organization.contact_person && (
-                      <div className="flex items-center space-x-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span>{organization.contact_person}</span>
-                      </div>
-                    )}
-                    {organization.contact_email && (
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span>{organization.contact_email}</span>
-                      </div>
-                    )}
-                    {organization.contact_phone && (
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <span>{organization.contact_phone}</span>
-                      </div>
-                    )}
-                  </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </>
+        ) : pendingInvitations.length > 0 && pendingOrganization ? (
+          // Show pending invitation
+          <Card>
+            <CardHeader>
+              <CardTitle>Organization Invitation</CardTitle>
+              <CardDescription>
+                You have been invited to join an organization
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback>{getInitials(pendingOrganization.name)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-medium">{pendingOrganization.name}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {pendingOrganization.region_name && `${pendingOrganization.region_name}`}
+                    {pendingOrganization.province_name && pendingOrganization.region_name && ', '}
+                    {pendingOrganization.province_name}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Announcements</CardTitle>
-                <CardDescription>
-                  Stay updated with the latest news and events
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+              </div>
+
+              {pendingOrganization.description && (
+                <div>
+                  <h4 className="font-medium mb-1">About the organization</h4>
+                  <p className="text-sm text-muted-foreground">{pendingOrganization.description}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-4 mt-4">
                 <Button 
                   variant="outline" 
-                  onClick={() => window.location.href = "/farmer/announcements"}
+                  onClick={() => declineInvitation(pendingInvitations[0].id)}
                 >
-                  View All Announcements
+                  Decline Invitation
                 </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="members" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Organization Members</CardTitle>
-                <CardDescription>
-                  Members of your organization
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {members.length === 0 ? (
-                  <div className="text-center py-10">
-                    <Users className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No members found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {members.map((member) => (
-                      <div key={member.id} className="flex items-center justify-between p-3 border rounded-md">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="h-10 w-10 bg-primary">
-                            <AvatarFallback>{getInitials(member.farmer.full_name)}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium flex items-center">
-                              {member.farmer.full_name}
-                              {member.role === 'admin' && (
-                                <span className="ml-2 inline-flex items-center">
-                                  <Crown className="h-3 w-3 text-amber-500" />
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">{member.farmer.farm_name}</div>
-                          </div>
-                        </div>
-                        <Badge variant={member.role === 'admin' ? "default" : "outline"}>
-                          {member.role === 'admin' ? 'Admin' : 'Member'}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                <Button 
+                  onClick={() => acceptInvitation(pendingInvitations[0].id)}
+                >
+                  Accept Invitation
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          // Show "no organization" card
+          <Card>
+            <CardHeader>
+              <CardTitle>No Organization Membership</CardTitle>
+              <CardDescription>
+                You are not a member of any organization yet
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <p className="text-muted-foreground">
+                Join an agricultural organization to access benefits such as:
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Budget allocation for farming expenses</li>
+                <li>Agricultural training and resources</li>
+                <li>Networking with other farmers</li>
+                <li>Access to shared equipment and resources</li>
+                <li>Marketing opportunities for your products</li>
+              </ul>
+              <Button 
+                onClick={() => navigate("/farmer/apply")} 
+                className="w-full sm:w-auto flex items-center gap-2"
+              >
+                <UserPlus className="h-4 w-4" />
+                Apply to Organization
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );

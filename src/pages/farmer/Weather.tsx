@@ -9,6 +9,8 @@ import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { WeatherRecord } from "@/types/database.types";
 import { getWeatherRecords } from "@/services/supabase";
 import { supabase } from "@/services/supabase";
+import { Progress } from "@/components/ui/progress";
+import { Cloud, CloudRain, Droplets, Sun, Wind, CloudFog, ThermometerSun, AlertCircle } from "lucide-react";
 
 interface Province {
   id: string;
@@ -126,206 +128,154 @@ export default function Weather() {
   return (
     <DashboardLayout userRole="farmer">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Weather Information</h1>
-          <div className="w-64">
-            <Select
-              value={selectedProvince}
-              onValueChange={setSelectedProvince}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select province" />
-              </SelectTrigger>
-              <SelectContent>
-                {provinces.map((province) => (
-                  <SelectItem key={province.id} value={province.id}>
-                    {province.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Weather Forecast</h1>
+          <p className="text-muted-foreground">
+            Monitor weather conditions for your farm location
+          </p>
         </div>
 
-        {selectedProvince && weatherRecords.length > 0 && (
-          <Tabs defaultValue="current">
-            <TabsList>
-              <TabsTrigger value="current">Current Weather</TabsTrigger>
-              <TabsTrigger value="forecast">7-Day Forecast</TabsTrigger>
-              <TabsTrigger value="historical">Historical Data</TabsTrigger>
-            </TabsList>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Temperature</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center">
+                <ThermometerSun className="h-5 w-5 text-amber-500 mr-2" />
+                <div className="text-2xl font-bold">32°C</div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Feels like 34°C</p>
+            </CardContent>
+          </Card>
 
-            <TabsContent value="current">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Current Weather Conditions</CardTitle>
-                  <CardDescription>
-                    Latest weather data for {provinces.find(p => p.id === selectedProvince)?.name}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {weatherRecords[0] && (
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-4">
-                          <span className="text-6xl">
-                            {getWeatherIcon(weatherRecords[0].weather_condition || '')}
-                          </span>
-                          <div>
-                            <h3 className="text-2xl font-semibold">
-                              {weatherRecords[0].weather_condition}
-                            </h3>
-                            <p className="text-muted-foreground">
-                              {getWeatherImpact(weatherRecords[0].weather_condition || '')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Temperature</p>
-                            <p className="text-2xl font-semibold">
-                              {weatherRecords[0].temperature}°C
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Humidity</p>
-                            <p className="text-2xl font-semibold">
-                              {weatherRecords[0].humidity}%
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Rainfall</p>
-                            <p className="text-2xl font-semibold">
-                              {weatherRecords[0].rainfall} mm
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Wind Speed</p>
-                            <p className="text-2xl font-semibold">
-                              {weatherRecords[0].wind_speed} km/h
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <h4 className="font-semibold">Forecast</h4>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Condition</TableHead>
-                              <TableHead>Temperature</TableHead>
-                              <TableHead>Rainfall</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {weatherRecords.slice(1).map((record) => (
-                              <TableRow key={record.id}>
-                                <TableCell>
-                                  {new Date(record.record_date).toLocaleDateString()}
-                                </TableCell>
-                                <TableCell className="flex items-center gap-2">
-                                  <span>{getWeatherIcon(record.weather_condition || '')}</span>
-                                  {record.weather_condition}
-                                </TableCell>
-                                <TableCell>{record.temperature}°C</TableCell>
-                                <TableCell>{record.rainfall} mm</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Humidity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center">
+                <Droplets className="h-5 w-5 text-blue-500 mr-2" />
+                <div className="text-2xl font-bold">68%</div>
+              </div>
+              <Progress value={68} className="h-1.5 mt-2" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Wind Speed</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center">
+                <Wind className="h-5 w-5 text-gray-500 mr-2" />
+                <div className="text-2xl font-bold">12 km/h</div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Direction: NE</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Precipitation</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center">
+                <CloudRain className="h-5 w-5 text-blue-500 mr-2" />
+                <div className="text-2xl font-bold">30%</div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Chance of rain today</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="forecast">
+          <TabsList>
+            <TabsTrigger value="forecast">7-Day Forecast</TabsTrigger>
+            <TabsTrigger value="agricultural">Agricultural Impact</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="forecast" className="space-y-4 mt-6">
+            <div className="grid grid-cols-7 gap-2">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => (
+                <Card key={day} className={`text-center ${index === 0 ? 'bg-primary/10' : ''}`}>
+                  <CardHeader className="p-2 pb-0">
+                    <CardTitle className="text-sm">{day}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <div className="flex justify-center my-2">
+                      {index === 0 && <Sun className="h-8 w-8 text-amber-500" />}
+                      {index === 1 && <Sun className="h-8 w-8 text-amber-500" />}
+                      {index === 2 && <Cloud className="h-8 w-8 text-gray-400" />}
+                      {index === 3 && <CloudRain className="h-8 w-8 text-blue-500" />}
+                      {index === 4 && <CloudRain className="h-8 w-8 text-blue-500" />}
+                      {index === 5 && <CloudFog className="h-8 w-8 text-gray-400" />}
+                      {index === 6 && <Sun className="h-8 w-8 text-amber-500" />}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="forecast">
-              <Card>
-                <CardHeader>
-                  <CardTitle>7-Day Weather Forecast</CardTitle>
-                  <CardDescription>
-                    Extended weather forecast and agricultural recommendations
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Weather</TableHead>
-                        <TableHead>Temperature</TableHead>
-                        <TableHead>Humidity</TableHead>
-                        <TableHead>Rainfall</TableHead>
-                        <TableHead>Wind Speed</TableHead>
-                        <TableHead>Farming Impact</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {weatherRecords.map((record) => (
-                        <TableRow key={record.id}>
-                          <TableCell>
-                            {new Date(record.record_date).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell className="flex items-center gap-2">
-                            <span>{getWeatherIcon(record.weather_condition || '')}</span>
-                            {record.weather_condition}
-                          </TableCell>
-                          <TableCell>{record.temperature}°C</TableCell>
-                          <TableCell>{record.humidity}%</TableCell>
-                          <TableCell>{record.rainfall} mm</TableCell>
-                          <TableCell>{record.wind_speed} km/h</TableCell>
-                          <TableCell>{getWeatherImpact(record.weather_condition || '')}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="historical">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Historical Weather Data</CardTitle>
-                  <CardDescription>
-                    Past weather patterns and trends
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Weather</TableHead>
-                        <TableHead>Temperature</TableHead>
-                        <TableHead>Rainfall</TableHead>
-                        <TableHead>Wind Speed</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {weatherRecords.map((record) => (
-                        <TableRow key={record.id}>
-                          <TableCell>
-                            {new Date(record.record_date).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell className="flex items-center gap-2">
-                            <span>{getWeatherIcon(record.weather_condition || '')}</span>
-                            {record.weather_condition}
-                          </TableCell>
-                          <TableCell>{record.temperature}°C</TableCell>
-                          <TableCell>{record.rainfall} mm</TableCell>
-                          <TableCell>{record.wind_speed} km/h</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        )}
+                    <div className="text-sm font-medium">
+                      {[32, 33, 29, 27, 26, 28, 31][index]}°C
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {[22, 23, 21, 20, 20, 21, 22][index]}°C
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="agricultural" className="space-y-4 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Agricultural Recommendations</CardTitle>
+                <CardDescription>
+                  Weather-based farming recommendations for your crops
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-3 p-3 border rounded-md">
+                  <Sun className="h-8 w-8 text-amber-500 shrink-0" />
+                  <div>
+                    <h3 className="font-medium">High Temperature Alert</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Temperatures are expected to remain high. Consider increasing irrigation for heat-sensitive crops.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 p-3 border rounded-md">
+                  <CloudRain className="h-8 w-8 text-blue-500 shrink-0" />
+                  <div>
+                    <h3 className="font-medium">Rainfall Expected</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Moderate rainfall expected on Wednesday and Thursday. Consider postponing any planned application of fertilizers or pesticides until after the rain.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 p-3 border rounded-md">
+                  <AlertCircle className="h-8 w-8 text-amber-500 shrink-0" />
+                  <div>
+                    <h3 className="font-medium">Pest Alert</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Current warm and humid conditions are favorable for pest activity. Conduct regular monitoring of your crops.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 p-3 border rounded-md">
+                  <Droplets className="h-8 w-8 text-blue-500 shrink-0" />
+                  <div>
+                    <h3 className="font-medium">Irrigation Planning</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Given the upcoming rainfall, adjust your irrigation schedule to conserve water. Resume normal irrigation from Friday onwards.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

@@ -32,9 +32,11 @@ import Plots from "./pages/farmer/Plots";
 import Profile from "./pages/farmer/Profile";
 import OrganizationProfile from "./pages/organization/OrganizationProfile";
 import OrganizationMembers from "./pages/organization/OrganizationMembers";
-import OrganizationBudget from "./pages/organization/OrganizationBudget";
+import OrganizationBudgetDistribution from "./pages/organization/OrganizationBudget";
 import OrganizationExpenses from "./pages/organization/OrganizationExpenses";
 import OrganizationDetails from "./pages/organization/OrganizationDetails";
+import OrganizationBudgetCenter from "./pages/organization/OrganizationBudgetCenter";
+import ExpenseEntry from "./pages/organization/ExpenseEntry";
 import MessagingPage from "./pages/MessagingPage";
 import NotificationSettings from "./pages/NotificationSettings";
 import OrganizationAdminDashboard from "./pages/organization-admin/OrganizationAdminDashboard";
@@ -48,10 +50,20 @@ import { testSupabaseConnection } from "./lib/supabase";
 import Organization from "./pages/farmer/Organization";
 import Apply from "./pages/farmer/Apply";
 import FarmerMessaging from "./pages/farmer/FarmerMessaging";
+import FarmerWallet from "./pages/farmer/FarmerWallet";
+import FarmerBudgetRequest from "./pages/farmer/FarmerBudgetRequest";
 import TestAuthFunctions from "./lib/TestAuthFunctions";
 import BudgetManagement from "./pages/BudgetManagement";
 import RegionalBudgetManagement from "./pages/RegionalBudgetManagement";
 import RegionView from "./pages/RegionView";
+import RequestBudget from "./pages/regional/RequestBudget";
+import SuperAdminBudgetRequests from "./pages/SuperAdminBudgetRequests";
+import Organizations from "./pages/regional/Organizations";
+import RegionAssignment from "./pages/organization/RegionAssignment";
+import BudgetCenter from "./pages/regional/budget-center";
+import FarmerCalendar from "./pages/farmer/Calendar";
+import Resources from "./pages/farmer/Resources";
+import Weather from "./pages/farmer/Weather";
 
 const queryClient = new QueryClient();
 
@@ -152,6 +164,14 @@ const App = () => {
                     } 
                   />
                   <Route 
+                    path="/superadmin/user-management" 
+                    element={
+                      <ProtectedRoute allowedRoles={["superadmin"]}>
+                        <UserManagement />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
                     path="/superadmin/reports" 
                     element={
                       <ProtectedRoute allowedRoles={["superadmin"]}>
@@ -183,29 +203,55 @@ const App = () => {
                       </ProtectedRoute>
                     } 
                   />
-                  
-                  {/* Regional Admin routes */}
                   <Route 
-                    path="/regional" 
+                    path="/superadmin/budget-requests" 
                     element={
-                      <ProtectedRoute allowedRoles={["regional_admin"]}>
-                        <RegionalDashboard />
+                      <ProtectedRoute allowedRoles={["superadmin"]}>
+                        <SuperAdminBudgetRequests />
                       </ProtectedRoute>
                     } 
                   />
+                  
+                  {/* Regional Admin routes */}
+                  <Route 
+                    path="/regional/request-budget" 
+                    element={
+                      <ProtectedRoute allowedRoles={["regional_admin"]}>
+                        <RequestBudget />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/regional/organizations" 
+                    element={
+                      <ProtectedRoute allowedRoles={["regional_admin"]}>
+                        <Organizations />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/regional/budget-center" 
+                    element={
+                      <ProtectedRoute allowedRoles={["regional_admin"]}>
+                        <BudgetCenter />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
+                  <Route 
+                    path="/regional/budget-management" 
+                    element={
+                      <ProtectedRoute allowedRoles={["regional_admin"]}>
+                        <BudgetManagement />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  
                   <Route 
                     path="/regional/*" 
                     element={
                       <ProtectedRoute allowedRoles={["regional_admin"]}>
                         <RegionalDashboard />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/regional/budget-management" 
-                    element={
-                      <ProtectedRoute allowedRoles={["regional_admin"]}>
-                        <RegionalBudgetManagement />
                       </ProtectedRoute>
                     } 
                   />
@@ -278,10 +324,18 @@ const App = () => {
                     } 
                   />
                   <Route 
-                    path="/organization/budget" 
+                    path="/organization/budget-management" 
                     element={
                       <ProtectedRoute allowedRoles={["org_admin"]}>
-                        <OrganizationBudget />
+                        <OrganizationBudgetCenter />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/organization/budget-distribution" 
+                    element={
+                      <ProtectedRoute allowedRoles={["org_admin"]}>
+                        <OrganizationBudgetDistribution />
                       </ProtectedRoute>
                     } 
                   />
@@ -290,6 +344,30 @@ const App = () => {
                     element={
                       <ProtectedRoute allowedRoles={["org_admin"]}>
                         <OrganizationExpenses />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/organization/settings/region" 
+                    element={
+                      <ProtectedRoute allowedRoles={["org_admin", "organization_admin"]}>
+                        <RegionAssignment />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/organization/budget-center" 
+                    element={
+                      <ProtectedRoute allowedRoles={["org_admin"]}>
+                        <OrganizationBudgetCenter />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/organization/expense-entry" 
+                    element={
+                      <ProtectedRoute allowedRoles={["org_admin"]}>
+                        <ExpenseEntry />
                       </ProtectedRoute>
                     } 
                   />
@@ -336,6 +414,22 @@ const App = () => {
                     } 
                   />
                   <Route 
+                    path="/farmer/wallet" 
+                    element={
+                      <ProtectedRoute allowedRoles={["farmer"]}>
+                        <FarmerWallet />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/farmer/budget-request" 
+                    element={
+                      <ProtectedRoute allowedRoles={["farmer"]}>
+                        <FarmerBudgetRequest />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
                     path="/farmer/plots" 
                     element={
                       <ProtectedRoute allowedRoles={["farmer"]}>
@@ -356,6 +450,30 @@ const App = () => {
                     element={
                       <ProtectedRoute allowedRoles={["farmer"]}>
                         <FarmerMessaging />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/farmer/calendar" 
+                    element={
+                      <ProtectedRoute allowedRoles={["farmer"]}>
+                        <FarmerCalendar />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/farmer/resources" 
+                    element={
+                      <ProtectedRoute allowedRoles={["farmer"]}>
+                        <Resources />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/farmer/weather" 
+                    element={
+                      <ProtectedRoute allowedRoles={["farmer"]}>
+                        <Weather />
                       </ProtectedRoute>
                     } 
                   />

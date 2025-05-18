@@ -26,6 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Link, useNavigate } from "react-router-dom";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 
 interface Organization {
   id: string;
@@ -57,6 +59,7 @@ interface ApplicationFormData {
 
 export default function Apply() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState<{[key: string]: boolean}>({});
@@ -74,6 +77,7 @@ export default function Apply() {
     previousOrganizations: "",
     farmDescription: ""
   });
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (user?.id) {
@@ -267,83 +271,62 @@ export default function Apply() {
     setApplicationForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleApplySubmit = async () => {
-    if (!selectedOrganization || !farmerProfile) {
-      toast.error("Missing organization or farmer profile information");
-      return;
-    }
-
-    if (!applicationForm.reason.trim()) {
-      toast.error("Please provide a reason for joining");
-      return;
-    }
-
-    setApplying(prev => ({ ...prev, [selectedOrganization.id]: true }));
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      // Check if there's an existing record (for reapplying after rejection)
-      const { data: existingApp, error: checkError } = await supabase
+      setSubmitting(true);
+      
+      if (!farmerProfile) {
+        throw new Error("Farmer profile not found. Please create a profile first.");
+      }
+      
+      const { error } = await supabase
         .from("organization_members")
-        .select("id, status")
-        .eq("organization_id", selectedOrganization.id)
-        .eq("farmer_id", farmerProfile.id)
-        .single();
-
-      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned" which is expected if no prior application
-        throw checkError;
-      }
-
-      let result;
+        .insert({
+          farmer_id: farmerProfile.id,
+          organization_id: selectedOrganization,
+          status: "pending",
+          role: "member",
+          application_reason: applicationForm.reason,
+          experience_level: applicationForm.experienceLevel,
+          has_previous_organizations: applicationForm.hasPreviousOrganizations,
+          previous_organizations: applicationForm.previousOrganizations,
+          farm_description: applicationForm.farmDescription
+        });
       
-      if (existingApp && existingApp.status === 'rejected') {
-        // Update the existing application
-        result = await supabase
-          .from("organization_members")
-          .update({
-            status: "pending",
-            application_reason: applicationForm.reason,
-            experience_level: applicationForm.experienceLevel,
-            has_previous_organizations: applicationForm.hasPreviousOrganizations,
-            previous_organizations: applicationForm.previousOrganizations,
-            farm_description: applicationForm.farmDescription,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", existingApp.id);
-      } else {
-        // Create a new application
-        result = await supabase
-          .from("organization_members")
-          .insert({
-            organization_id: selectedOrganization.id,
-            farmer_id: farmerProfile.id,
-            status: "pending",
-            role: "member",
-            application_reason: applicationForm.reason,
-            experience_level: applicationForm.experienceLevel,
-            has_previous_organizations: applicationForm.hasPreviousOrganizations,
-            previous_organizations: applicationForm.previousOrganizations,
-            farm_description: applicationForm.farmDescription,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
+      if (error) {
+        console.error("Error applying to organization:", error);
+        
+        // Check for duplicate application
+        if (error.code === '23505') { // unique_violation
+          throw new Error("You have already applied to this organization. Please wait for a response or contact the organization administrator.");
+        }
+        
+        throw error;
       }
-
-      if (result.error) throw result.error;
-
-      toast.success(`Application submitted to ${selectedOrganization.name}`);
-      setApplicationDialogOpen(false);
       
-      // Update local state
-      setMembershipStatus(prev => ({
-        ...prev,
-        [selectedOrganization.id]: "pending"
-      }));
+      toast.success("Application submitted successfully");
+      
+      // Clear form
+      setApplicationForm({
+        reason: "",
+        experienceLevel: "beginner",
+        hasPreviousOrganizations: false,
+        previousOrganizations: "",
+        farmDescription: ""
+      });
+      
+      setSelectedOrganization(null);
+      
+      // Navigate back to farmer organization page
+      navigate("/farmer/organization");
       
     } catch (error: any) {
       console.error("Error submitting application:", error);
-      toast.error(`Failed to submit application: ${error.message}`);
+      toast.error(error.message || "Failed to submit application. Please try again.");
     } finally {
-      setApplying(prev => ({ ...prev, [selectedOrganization.id]: false }));
+      setSubmitting(false);
     }
   };
 
@@ -393,7 +376,16 @@ export default function Apply() {
     <DashboardLayout userRole="farmer">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Find Organizations</h1>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Apply to Organization</h1>
+            <p className="text-muted-foreground">
+              Join an agricultural organization to access resources and support
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => navigate("/farmer/organization")} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
         </div>
         
         <div className="flex flex-col md:flex-row gap-4">
@@ -582,10 +574,10 @@ export default function Apply() {
               Cancel
             </Button>
             <Button 
-              onClick={handleApplySubmit}
-              disabled={!applicationForm.reason.trim() || applying[selectedOrganization?.id || ""]}
+              onClick={handleSubmit}
+              disabled={!applicationForm.reason.trim() || submitting || !selectedOrganization}
             >
-              {applying[selectedOrganization?.id || ""] ? (
+              {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Submitting...

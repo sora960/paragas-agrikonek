@@ -213,7 +213,46 @@ export default function OrganizationApplications() {
         throw new Error("Application not found");
       }
       
-      // Update the application status to active and set join_date to now
+      console.log("Approving application:", applicationId);
+      
+      // First try using the stored procedure if available
+      try {
+        const { data: procResult, error: procError } = await supabase
+          .rpc('approve_member_application', { p_application_id: applicationId });
+          
+        if (procError) {
+          console.warn("Stored procedure failed, falling back to direct update:", procError);
+          // Will continue to fallback
+        } else if (procResult === true) {
+          console.log("Application approved via stored procedure");
+          
+          // Send notification to the farmer about the approved application
+          if (application.farmer && organization) {
+            await createNotification(
+              application.farmer_id,
+              `Application Approved for ${organization.name}`,
+              `Your application to join ${organization.name} has been approved. You are now a member of this organization.`,
+              'system',
+              `/farmer/organization?org=${organization.id}`,
+              { organizationId: organization.id, organizationName: organization.name },
+              'high'
+            );
+          }
+          
+          toast({
+            title: "Success",
+            description: "Application approved successfully",
+          });
+          
+          loadApplications();
+          return;
+        }
+      } catch (procCallError) {
+        console.warn("Error calling stored procedure:", procCallError);
+        // Continue with fallback approach
+      }
+      
+      // Fallback to direct update if stored procedure isn't available or fails
       const { error } = await supabase
         .from("organization_members")
         .update({ 
@@ -222,7 +261,10 @@ export default function OrganizationApplications() {
         })
         .eq("id", applicationId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error details:", error);
+        throw error;
+      }
 
       // Also update farmer profile with any missing information if needed
       if (application.farmer) {
@@ -276,7 +318,7 @@ export default function OrganizationApplications() {
       console.error("Error approving application:", error);
       toast({
         title: "Error",
-        description: "Failed to approve application",
+        description: "Failed to approve application: " + (error.message || "Unknown error"),
         variant: "destructive",
       });
     } finally {

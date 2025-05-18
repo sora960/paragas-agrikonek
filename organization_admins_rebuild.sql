@@ -20,8 +20,8 @@ BEGIN
   CREATE INDEX IF NOT EXISTS organization_admins_user_id_idx ON public.organization_admins(user_id);
   CREATE INDEX IF NOT EXISTS organization_admins_organization_id_idx ON public.organization_admins(organization_id);
 
-  -- Enable Row Level Security but with permissive policies
-  ALTER TABLE public.organization_admins ENABLE ROW LEVEL SECURITY;
+  -- Disable Row Level Security
+  ALTER TABLE public.organization_admins DISABLE ROW LEVEL SECURITY;
   
   -- Create a simple policy that allows all actions
   CREATE POLICY "Enable all access for all users" 

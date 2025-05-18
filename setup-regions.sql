@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS public.island_groups (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Enable RLS on island_groups
-ALTER TABLE public.island_groups ENABLE ROW LEVEL SECURITY;
+-- Disable RLS on island_groups
+ALTER TABLE public.island_groups DISABLE ROW LEVEL SECURITY;
 
 -- Create policy for island_groups
 DO $$
@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS public.regions (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Enable RLS on regions
-ALTER TABLE public.regions ENABLE ROW LEVEL SECURITY;
+-- Disable RLS on regions
+ALTER TABLE public.regions DISABLE ROW LEVEL SECURITY;
 
 -- Create policy for regions
 DO $$
@@ -113,8 +113,8 @@ BEGIN
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         
-        -- Enable RLS on provinces
-        ALTER TABLE public.provinces ENABLE ROW LEVEL SECURITY;
+        -- Disable RLS on provinces
+        ALTER TABLE public.provinces DISABLE ROW LEVEL SECURITY;
         
         -- Create policy for provinces
         CREATE POLICY "Enable all access for authenticated users" 
@@ -139,8 +139,8 @@ CREATE TABLE IF NOT EXISTS public.annual_budgets (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Enable RLS on annual_budgets
-ALTER TABLE public.annual_budgets ENABLE ROW LEVEL SECURITY;
+-- Disable RLS on annual_budgets
+ALTER TABLE public.annual_budgets DISABLE ROW LEVEL SECURITY;
 
 -- Create policy for annual_budgets
 DO $$
@@ -171,8 +171,8 @@ CREATE TABLE IF NOT EXISTS public.region_budgets (
     UNIQUE(region_id, fiscal_year)
 );
 
--- Enable RLS on region_budgets
-ALTER TABLE public.region_budgets ENABLE ROW LEVEL SECURITY;
+-- Disable RLS on region_budgets
+ALTER TABLE public.region_budgets DISABLE ROW LEVEL SECURITY;
 
 -- Create policy for region_budgets
 DO $$

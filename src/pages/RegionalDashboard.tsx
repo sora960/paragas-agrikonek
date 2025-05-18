@@ -84,7 +84,7 @@ export default function RegionalDashboard() {
         const currentYear = new Date().getFullYear();
         const { data: budgetData, error: budgetError } = await supabase
           .from("region_budgets")
-          .select("amount, utilized")
+          .select("amount")
           .eq("region_id", userRegion.region_id)
           .eq("fiscal_year", currentYear)
           .single();
@@ -101,7 +101,7 @@ export default function RegionalDashboard() {
           total_hectares: Math.floor(totalFarmers * 2.5), // Estimate based on farmers
           crop_varieties: 16, // Placeholder
           budget_allocation: budgetData?.amount || 0,
-          budget_utilized: budgetData?.utilized || 0
+          budget_utilized: 0
         };
         
         setRegionData(regionStats);

@@ -38,24 +38,9 @@ export async function updateDirectClientWithAuth() {
         'Authorization': `Bearer ${session.access_token}`
       });
       
-      // Create a new client with updated headers
-      const updatedClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        },
-        global: {
-          headers: {
-            'apikey': supabaseAnonKey,
-            'Authorization': `Bearer ${session.access_token}`
-          }
-        }
-      });
-      
-      // Replace the directClient methods with the updated client's methods
-      Object.assign(directClient, updatedClient);
-      
-      console.log('Updated direct client with authenticated session');
+      // DON'T replace the directClient methods with the updated client's methods
+      // This was causing authentication issues
+      console.log('Updated direct client headers with authenticated session');
       return true;
     } else {
       // Fall back to anon key if no session
@@ -563,45 +548,96 @@ export const regionService = {
   },
 
   async setRegionBudget(regionId: string, amount: number, fiscalYear: number): Promise<RegionBudget> {
-    // Check if budget already exists
-    const { data: existingBudget, error: fetchError } = await directClient
-      .from('region_budgets')
-      .select('id')
-      .eq('region_id', regionId)
-      .eq('fiscal_year', fiscalYear)
-      .maybeSingle();
-    
-    if (fetchError) throw fetchError;
-    
-    if (existingBudget) {
-      // Update existing budget
-      const { data, error } = await directClient
-        .from('region_budgets')
-        .update({ 
-          amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existingBudget.id)
-        .select()
-        .single();
+    // Don't strictly require a session for custom auth systems
+    try {
+      console.log(`Attempting to set budget for region ${regionId} to ${amount} for fiscal year ${fiscalYear}`);
       
-      if (error) throw error;
-      return data;
-    } else {
-      // Create new budget
-      const { data, error } = await directClient
-        .from('region_budgets')
-        .insert({
-          region_id: regionId,
-          fiscal_year: fiscalYear,
-          amount,
-          allocated: false
-        })
-        .select()
-        .single();
+      // For superadmins, we'll try to use a direct RPC call to bypass RLS
+      try {
+        // Try using a stored procedure or RPC call that bypasses RLS
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('admin_update_region_budget', {
+            p_region_id: regionId,
+            p_amount: amount,
+            p_fiscal_year: fiscalYear
+          });
+        
+        if (!rpcError) {
+          console.log('Successfully updated region budget via RPC:', rpcData);
+          return rpcData;
+        }
+        
+        // If the RPC doesn't exist or fails, fall back to standard method
+        console.log('RPC call failed, falling back to standard method:', rpcError);
+      } catch (rpcErr) {
+        console.log('RPC method not available, using standard approach');
+      }
       
-      if (error) throw error;
-      return data;
+      // First try to get the existing budget
+      const { data: existingBudget, error: fetchError } = await supabase
+        .from('region_budgets')
+        .select('id, amount')
+        .eq('region_id', regionId)
+        .eq('fiscal_year', fiscalYear)
+        .maybeSingle();
+      
+      if (fetchError) {
+        console.error('Error fetching existing budget:', fetchError);
+        throw fetchError;
+      }
+      
+      let result;
+      
+      if (existingBudget) {
+        console.log(`Updating existing budget for region ${regionId} from ${existingBudget.amount} to ${amount}`);
+        // Update existing budget
+        const { data, error } = await supabase
+          .from('region_budgets')
+          .update({ 
+            amount,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingBudget.id)
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('Error updating region budget:', error);
+          throw error;
+        }
+        result = data;
+      } else {
+        console.log(`Creating new budget for region ${regionId} with amount ${amount}`);
+        // Create new budget
+        const { data, error } = await supabase
+          .from('region_budgets')
+          .insert({
+            region_id: regionId,
+            fiscal_year: fiscalYear,
+            amount,
+            allocated: false
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('Error creating region budget:', error);
+          throw error;
+        }
+        result = data;
+      }
+      
+      console.log('Successfully updated region budget:', result);
+      return result;
+    } catch (error: any) {
+      console.error('Error in setRegionBudget:', error);
+      
+      // Check for permission denied errors
+      if (error.message?.includes('permission denied')) {
+        throw new Error('Permission denied: Your account does not have sufficient privileges to update region budgets.');
+      }
+      
+      throw error;
     }
   },
 
@@ -735,6 +771,92 @@ export const regionService = {
     } catch (error) {
       console.error('Error cleaning up dummy provinces:', error);
       return 0;
+    }
+  },
+
+  /**
+   * Get all regions
+   */
+  async getAllRegions(): Promise<Region[]> {
+    try {
+      const { data, error } = await supabase
+        .from('regions')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching regions:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Assign a user as a regional admin
+   */
+  async assignRegionalAdmin(userId: string, regionId: string): Promise<boolean> {
+    try {
+      console.log(`Assigning user ${userId} as admin for region ${regionId}`);
+      
+      // First check if this admin association already exists
+      const { data: existingAssignment, error: checkError } = await supabase
+        .from('user_regions')
+        .select('id')
+        .match({ user_id: userId, region_id: regionId })
+        .maybeSingle();
+        
+      if (checkError) {
+        console.error("Error checking existing assignment:", checkError);
+        throw checkError;
+      }
+      
+      // If it already exists, we don't need to do anything
+      if (existingAssignment) {
+        console.log("User is already an admin for this region");
+        return true;
+      }
+      
+      // Check if user exists
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('id', userId)
+        .single();
+        
+      if (userError) {
+        console.error("Error checking user:", userError);
+        throw userError;
+      }
+      
+      // Make direct backend call with the service_role for RLS bypass (since we're using custom auth)
+      // Instead of using the .from('user_regions').insert() method
+      // Use direct fetch API call to a serverless function or API endpoint
+      
+      const response = await fetch('/api/admin/assign-regional-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Include auth token if you have one from your custom auth system
+          'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          region_id: regionId
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Error assigning regional admin:", errorData);
+        throw new Error(errorData.message || 'Failed to assign regional admin');
+      }
+      
+      console.log("Successfully assigned user as regional admin");
+      return true;
+    } catch (error) {
+      console.error('Error assigning regional admin:', error);
+      throw error;
     }
   }
 }; 

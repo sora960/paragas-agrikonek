@@ -17,7 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
+import { budgetService } from "@/services/budgetService";
 
 interface Organization {
   id: string;
@@ -45,8 +47,11 @@ export default function RegionalBudget() {
   const [regionBudget, setRegionBudget] = useState<RegionBudget | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [showAllocationDialog, setShowAllocationDialog] = useState(false);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
   const [allocationAmount, setAllocationAmount] = useState("");
+  const [requestAmount, setRequestAmount] = useState("");
+  const [requestReason, setRequestReason] = useState("");
 
   useEffect(() => {
     loadBudgetData();
@@ -70,7 +75,6 @@ export default function RegionalBudget() {
         .from('region_budgets')
         .select('*')
         .eq('region_id', adminData.region_id)
-        .eq('fiscal_year', new Date().getFullYear())
         .single();
 
       if (budgetError) throw budgetError;
@@ -130,8 +134,7 @@ export default function RegionalBudget() {
       const { data: updatedBudget, error: budgetError } = await supabase
         .rpc('allocate_organization_budget', {
           p_organization_id: selectedOrg.id,
-          p_amount: amount,
-          p_fiscal_year: new Date().getFullYear()
+          p_amount: amount
         });
 
       if (budgetError) throw budgetError;
@@ -154,6 +157,44 @@ export default function RegionalBudget() {
     }
   };
 
+  const handleBudgetRequest = async () => {
+    if (!selectedOrg) return;
+
+    try {
+      const amount = parseFloat(requestAmount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error("Invalid amount");
+      }
+
+      if (!requestReason.trim()) {
+        throw new Error("Please provide a reason for the budget request");
+      }
+
+      await budgetService.requestBudgetIncrease({
+        organization_id: selectedOrg.id,
+        current_amount: selectedOrg.total_allocation,
+        requested_amount: amount,
+        reason: requestReason
+      });
+
+      setShowRequestDialog(false);
+      setRequestAmount("");
+      setRequestReason("");
+      setSelectedOrg(null);
+
+      toast({
+        title: "Success",
+        description: "Budget request submitted successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit budget request",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout userRole="regional">
@@ -169,13 +210,16 @@ export default function RegionalBudget() {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Regional Budget Management</h1>
+          <Button onClick={() => setShowRequestDialog(true)}>
+            Request Budget Increase
+          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader>
               <CardTitle>Total Budget</CardTitle>
-              <CardDescription>Fiscal Year {regionBudget?.fiscal_year}</CardDescription>
+              <CardDescription>Regional Budget Allocation</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">₱{regionBudget?.amount.toLocaleString()}</div>
@@ -243,15 +287,26 @@ export default function RegionalBudget() {
                     </TableCell>
                     <TableCell>₱{org.remaining_amount.toLocaleString()}</TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedOrg(org);
-                          setShowAllocationDialog(true);
-                        }}
-                      >
-                        Allocate Budget
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedOrg(org);
+                            setShowAllocationDialog(true);
+                          }}
+                        >
+                          Allocate
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedOrg(org);
+                            setShowRequestDialog(true);
+                          }}
+                        >
+                          Request
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -260,6 +315,7 @@ export default function RegionalBudget() {
           </CardContent>
         </Card>
 
+        {/* Allocation Dialog */}
         <Dialog open={showAllocationDialog} onOpenChange={setShowAllocationDialog}>
           <DialogContent>
             <DialogHeader>
@@ -268,27 +324,63 @@ export default function RegionalBudget() {
                 Allocate budget to {selectedOrg?.name}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Amount</Label>
+                <Label htmlFor="amount">Amount (₱)</Label>
                 <Input
+                  id="amount"
                   type="number"
                   value={allocationAmount}
                   onChange={(e) => setAllocationAmount(e.target.value)}
                   placeholder="Enter amount"
                 />
-                <p className="text-sm text-muted-foreground">
-                  Available: ₱{regionBudget?.remaining_amount.toLocaleString()}
-                </p>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowAllocationDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAllocation}>
-                Allocate
+              <Button onClick={handleAllocation}>Allocate</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Budget Request Dialog */}
+        <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Budget Increase</DialogTitle>
+              <DialogDescription>
+                Request additional budget for {selectedOrg?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="requestAmount">Requested Amount (₱)</Label>
+                <Input
+                  id="requestAmount"
+                  type="number"
+                  value={requestAmount}
+                  onChange={(e) => setRequestAmount(e.target.value)}
+                  placeholder="Enter requested amount"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reason">Reason for Request</Label>
+                <Textarea
+                  id="reason"
+                  value={requestReason}
+                  onChange={(e) => setRequestReason(e.target.value)}
+                  placeholder="Explain why you need additional budget"
+                  rows={4}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowRequestDialog(false)}>
+                Cancel
               </Button>
+              <Button onClick={handleBudgetRequest}>Submit Request</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

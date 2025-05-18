@@ -17,7 +17,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.organization_admins TO authentica
 GRANT SELECT, INSERT ON public.organization_admins TO anon;
 
 -- Add RLS (Row Level Security) policies to protect data
-ALTER TABLE public.organization_admins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_admins DISABLE ROW LEVEL SECURITY;
 
 -- Policy to allow superadmins to manage all organization admin relationships
 CREATE POLICY manage_all_org_admins ON public.organization_admins

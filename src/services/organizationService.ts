@@ -23,34 +23,71 @@ export const organizationService = {
   },
 
   async getOrganizationByMember(userId: string): Promise<Organization | null> {
-    type OrgResponse = {
-      organization: {
-        id: string;
-        name: string;
-        description?: string;
-        created_at: string;
-        updated_at: string;
-        status: 'active' | 'inactive';
-        region_id: string;
-      };
-    };
+    try {
+      console.log("Fetching organization for user ID:", userId);
+      if (!userId) {
+        console.error("No user ID provided");
+        return null;
+      }
 
-    const { data, error } = await supabase
-      .from('organization_members')
-      .select('organization:organization_id(*)')
-      .eq('farmer_id', userId)
-      .single<OrgResponse>();
-    
-    if (error) throw error;
-    return data?.organization ? {
-      id: data.organization.id,
-      name: data.organization.name,
-      description: data.organization.description,
-      created_at: data.organization.created_at,
-      updated_at: data.organization.updated_at,
-      status: data.organization.status,
-      region_id: data.organization.region_id
-    } : null;
+      // First get the farmer profile for this user
+      const { data: farmerProfile, error: farmerError } = await supabase
+        .from('farmer_profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+        
+      if (farmerError) {
+        console.error("Error finding farmer profile:", farmerError);
+        
+        // If no farmer profile, try organization_admins table directly
+        type AdminOrgResponse = {
+          organization: Organization;
+        };
+        
+        const { data: adminOrg, error: adminError } = await supabase
+          .from('organization_admins')
+          .select('organization:organization_id(*)')
+          .eq('user_id', userId)
+          .single<AdminOrgResponse>();
+          
+        if (!adminError && adminOrg?.organization) {
+          console.log("Found organization via admin relationship");
+          return adminOrg.organization;
+        }
+        
+        console.error("User is not associated with any organization as a farmer or admin");
+        return null;
+      }
+
+      if (!farmerProfile) {
+        console.error("No farmer profile found for user");
+        return null;
+      }
+
+      console.log("Found farmer profile:", farmerProfile.id);
+      
+      // Now get the organization using the farmer_id
+      type OrgResponse = {
+        organization: Organization;
+      };
+      
+      const { data, error } = await supabase
+        .from('organization_members')
+        .select('organization:organization_id(*)')
+        .eq('farmer_id', farmerProfile.id)
+        .single<OrgResponse>();
+      
+      if (error) {
+        console.error("Error finding organization:", error);
+        return null;
+      }
+      
+      return data?.organization || null;
+    } catch (error) {
+      console.error("Exception in getOrganizationByMember:", error);
+      return null;
+    }
   },
 
   async createOrganization(organizationData: {
@@ -163,22 +200,65 @@ export const organizationService = {
   },
 
   // Budget Request Operations
-  async requestBudgetIncrease(
+  async requestOrganizationBudget(
     organizationId: string,
-    currentBudget: number,
     requestedAmount: number,
     reason: string
-  ): Promise<FinancialReport> {
-    const report = {
-      organization_id: organizationId,
-      report_type: 'budget_request' as const,
-      fiscal_year: new Date().getFullYear(),
-      amount: requestedAmount,
-      description: reason,
-      status: 'submitted' as const,
-    };
-
-    return this.createFinancialReport(report);
+  ): Promise<boolean> {
+    try {
+      // First try the function
+      try {
+        const { data, error } = await supabase.rpc(
+          'request_organization_budget',
+          {
+            p_organization_id: organizationId,
+            p_requested_amount: requestedAmount,
+            p_reason: reason
+          }
+        );
+        
+        if (!error) {
+          return true;
+        }
+        console.error("Error using request_organization_budget function:", error);
+      } catch (err) {
+        console.error("Exception calling request_organization_budget:", err);
+      }
+      
+      // Fall back to direct SQL if the function fails
+      console.log("Falling back to direct SQL for budget request");
+      
+      // Get the region ID for this organization
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .select('region_id, name')
+        .eq('id', organizationId)
+        .single();
+        
+      if (orgError || !orgData.region_id) {
+        throw new Error("Failed to find organization region");
+      }
+      
+      // Create the budget request record
+      const { data, error } = await supabase
+        .from('organization_budget_requests')
+        .insert({
+          organization_id: organizationId,
+          region_id: orgData.region_id,
+          requested_amount: requestedAmount,
+          reason: reason,
+          status: 'pending',
+          request_date: new Date().toISOString()
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error("Failed to request budget increase:", error);
+      return false;
+    }
   },
 
   // Regional Budget Operations
@@ -521,6 +601,14 @@ export const organizationService = {
   // Get organizations managed by an admin
   async getOrganizationByAdmin(userId: string): Promise<Array<{ id: string; name: string }>> {
     try {
+      interface OrgAdminResponse {
+        organization_id: string;
+        organizations: {
+          id: string;
+          name: string;
+        };
+      }
+      
       const { data, error } = await supabase
         .from('organization_admins')
         .select(`
@@ -536,8 +624,14 @@ export const organizationService = {
         console.error("Error fetching admin organizations:", error);
         return [];
       }
+
+      if (!data || data.length === 0) {
+        return [];
+      }
       
-      return data.map(item => ({
+      // Cast data to the expected type and map it
+      const typedData = data as unknown as OrgAdminResponse[];
+      return typedData.map(item => ({
         id: item.organizations.id,
         name: item.organizations.name
       }));

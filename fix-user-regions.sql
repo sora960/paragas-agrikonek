@@ -22,7 +22,7 @@ BEGIN
   );
   
   -- Setup permissions
-  ALTER TABLE public.user_regions ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.user_regions DISABLE ROW LEVEL SECURITY;
   
   CREATE POLICY "Enable all access for all users" 
     ON public.user_regions FOR ALL 

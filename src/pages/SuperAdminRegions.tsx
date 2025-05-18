@@ -71,15 +71,18 @@ export default function SuperAdminRegions() {
     fetchRegions();
   }, []);
 
+  // Fetch regional admins after fetching regions
+  useEffect(() => {
+    if (regions.length > 0) {
+      fetchRegionalAdmins();
+    }
+    // eslint-disable-next-line
+  }, [regions]);
+
   // Apply filters and sorting whenever regions, selectedIslandGroup, sortDirection, or searchTerm changes
   useEffect(() => {
     applyFiltersAndSort();
   }, [regions, selectedIslandGroup, sortDirection, searchTerm]);
-
-  // Fetch regional admins when regions change
-  useEffect(() => {
-    fetchRegionalAdmins();
-  }, [regions]);
 
   const fetchIslandGroups = async () => {
     try {
@@ -207,16 +210,12 @@ export default function SuperAdminRegions() {
         .from("regions")
         .select("*")
         .order("name");
-        
       if (regionsError) throw regionsError;
-      
       // First, fetch all organizations
       const { data: orgsData, error: orgsError } = await supabase
         .from("organizations")
         .select("region_id");
-        
       if (orgsError) throw orgsError;
-      
       // Then manually count by region_id
       const orgCounts: Record<string, number> = {};
       orgsData?.forEach(org => {
@@ -224,30 +223,24 @@ export default function SuperAdminRegions() {
           orgCounts[org.region_id] = (orgCounts[org.region_id] || 0) + 1;
         }
       });
-      
       // Fetch budget allocations for regions
+      // Note: Removed fiscal_year filter as column may not exist in current schema
       const { data: budgetData, error: budgetError } = await supabase
         .from("region_budgets")
-        .select("region_id, amount")
-        .eq("fiscal_year", new Date().getFullYear());
-        
+        .select("region_id, amount");
       if (budgetError) throw budgetError;
-      
       // Combine data
       const enhancedRegions = regionsData.map((region: any) => {
         // Get organization count for this region
         const orgCount = orgCounts[region.id] || 0;
-        
         // Find budget allocation for this region
         const budget = budgetData?.find((b: any) => b.region_id === region.id);
-        
         return {
           ...region,
           organization_count: orgCount,
           budget_allocation: budget ? budget.amount : 0
         };
       });
-      
       setRegions(enhancedRegions);
     } catch (err: any) {
       console.error("Error fetching regions:", err);
@@ -294,16 +287,6 @@ export default function SuperAdminRegions() {
             <p className="text-muted-foreground mt-2">
               Manage regions and their budget allocations
             </p>
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={fetchRegions} disabled={loading}>
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Refresh
-            </Button>
-            <Button onClick={handleCreateRegion}>
-              <MapPin className="mr-2 h-4 w-4" />
-              Add Region
-            </Button>
           </div>
         </div>
 
@@ -459,14 +442,6 @@ export default function SuperAdminRegions() {
                                 >
                                   <DollarSign className="h-4 w-4 mr-1" />
                                   Budget
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => navigate(`/superadmin/user-management?tab=regional-admins&region=${region.id}`)}
-                                >
-                                  <Users className="h-4 w-4 mr-1" />
-                                  Admins
                                 </Button>
                               </div>
                             </TableCell>

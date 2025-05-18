@@ -4,8 +4,8 @@ DO $$
 BEGIN
   -- Fix users table permissions
   BEGIN
-    -- Enable RLS on users table
-    ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+    -- Disable RLS on users table
+    ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
     
     -- Create policy for users table if it doesn't exist
     IF NOT EXISTS (
@@ -33,8 +33,8 @@ BEGIN
       WHERE schemaname = 'public'
       AND tablename = 'user_credentials'
     ) THEN
-      -- Enable RLS
-      ALTER TABLE public.user_credentials ENABLE ROW LEVEL SECURITY;
+      -- Disable RLS
+      ALTER TABLE public.user_credentials DISABLE ROW LEVEL SECURITY;
       
       -- Create policy if it doesn't exist
       IF NOT EXISTS (

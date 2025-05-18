@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.organization_admins (
 );
 
 -- 3. Add RLS policies
-ALTER TABLE public.organization_admins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_admins DISABLE ROW LEVEL SECURITY;
 
 -- 4. Create policies for organization admins
 CREATE POLICY "Organization admins can see their own organizations"

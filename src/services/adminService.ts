@@ -312,6 +312,8 @@ export const adminService = {
    */
   async getAllOrganizationAdmins(searchTerm: string = ''): Promise<User[]> {
     try {
+      console.log("Fetching all organization admins");
+      
       // Get all users with org_admin role
       let query = supabase
         .from('users')
@@ -331,6 +333,8 @@ export const adminService = {
         return [];
       }
       
+      console.log(`Found ${users?.length || 0} organization admin users`);
+      
       if (!users || users.length === 0) {
         return [];
       }
@@ -338,14 +342,18 @@ export const adminService = {
       // Get all organization_admins entries to check which admins have organizations
       const userIds = users.map(user => user.id);
       
+      console.log("Fetching organization assignments for user IDs:", userIds);
+      
       const { data: orgAdmins, error: orgError } = await supabase
         .from('organization_admins')
-        .select('user_id, organization_id, organizations:organization_id(name)')
+        .select('user_id, organization_id, organizations:organization_id(id, name)')
         .in('user_id', userIds);
         
       if (orgError) {
         console.error("Error fetching admin organization assignments:", orgError);
       }
+      
+      console.log(`Found ${orgAdmins?.length || 0} organization admin assignments`);
       
       // Create a map of user_id to organizations
       const userOrganizationsMap = new Map();
@@ -355,16 +363,23 @@ export const adminService = {
           if (!userOrganizationsMap.has(item.user_id)) {
             userOrganizationsMap.set(item.user_id, []);
           }
-          userOrganizationsMap.get(item.user_id).push({
+          
+          // Ensure we're capturing both id and name from the organizations object
+          const orgDetails = {
             id: item.organization_id,
             name: (item.organizations as any)?.name || 'Unknown Organization'
-          });
+          };
+          
+          userOrganizationsMap.get(item.user_id).push(orgDetails);
         });
       }
+      
+      console.log("Users with organizations:", Array.from(userOrganizationsMap.keys()).length);
       
       // Map users with their organization info and set status to "occupied" or "available"
       return users.map(user => {
         const hasOrganizations = userOrganizationsMap.has(user.id) && userOrganizationsMap.get(user.id).length > 0;
+        const userOrgs = userOrganizationsMap.get(user.id) || [];
         
         return {
           id: user.id,
@@ -373,7 +388,7 @@ export const adminService = {
           role: user.role,
           // Keep original status if it's not 'active', otherwise determine based on assignments
           status: user.status !== 'active' ? user.status : hasOrganizations ? 'occupied' : 'available',
-          organizations: userOrganizationsMap.get(user.id) || [],
+          organizations: userOrgs,
           has_organization: hasOrganizations
         };
       });

@@ -59,4 +59,104 @@ export async function testSupabaseConnection() {
     console.error('Error testing Supabase connection:', error)
     return false
   }
+}
+
+// Add a way to execute direct SQL for admin operations
+export async function executeSuperAdminOperation(operation: string, params: any = {}) {
+  console.log(`Executing superadmin operation: ${operation}`, params);
+  
+  try {
+    // This should be an endpoint that requires superadmin auth
+    const response = await fetch('/api/admin/execute-operation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // Include current auth token if available
+        'Authorization': `Bearer ${localStorage.getItem('auth_token') || ''}`
+      },
+      body: JSON.stringify({
+        operation,
+        params
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error executing superadmin operation:', errorText);
+      throw new Error(`Admin operation failed: ${errorText}`);
+    }
+    
+    const result = await response.json();
+    console.log('Admin operation result:', result);
+    return result;
+  } catch (error) {
+    console.error('Error in executeSuperAdminOperation:', error);
+    throw error;
+  }
+}
+
+// Add a direct method to update region budget
+export async function updateRegionBudgetDirect(regionId: string, amount: number, fiscalYear: number) {
+  console.log(`Direct update of region budget: Region ${regionId}, Amount ${amount}, Year ${fiscalYear}`);
+  
+  try {
+    // First try direct API approach for superadmins
+    try {
+      const adminOpResult = await executeSuperAdminOperation('update_region_budget', {
+        region_id: regionId,
+        amount,
+        fiscal_year: fiscalYear
+      });
+      
+      console.log('Direct admin operation successful:', adminOpResult);
+      return adminOpResult;
+    } catch (adminOpError) {
+      console.log('Admin operation failed, falling back to normal methods:', adminOpError);
+    }
+    
+    // Fall back to standard methods if admin operation fails
+    const { data: existingBudget, error: fetchError } = await supabase
+      .from('region_budgets')
+      .select('id')
+      .eq('region_id', regionId)
+      .eq('fiscal_year', fiscalYear)
+      .maybeSingle();
+    
+    if (fetchError) throw fetchError;
+    
+    let result;
+    
+    if (existingBudget) {
+      // Update existing budget
+      const { data, error } = await supabase
+        .from('region_budgets')
+        .update({ amount })
+        .eq('id', existingBudget.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      result = data;
+    } else {
+      // Create new budget
+      const { data, error } = await supabase
+        .from('region_budgets')
+        .insert({
+          region_id: regionId,
+          fiscal_year: fiscalYear,
+          amount,
+          allocated: false
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      result = data;
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error in updateRegionBudgetDirect:', error);
+    throw error;
+  }
 } 

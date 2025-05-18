@@ -75,6 +75,32 @@ CREATE TABLE IF NOT EXISTS public.organization_expenses (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Budget Requests Table
+CREATE TABLE IF NOT EXISTS public.budget_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    region_id UUID REFERENCES public.regions(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    requested_amount DECIMAL(15,2) NOT NULL,
+    reason TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    request_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    processed_date TIMESTAMP WITH TIME ZONE,
+    processed_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    notes TEXT
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS budget_requests_region_id_idx ON public.budget_requests(region_id);
+CREATE INDEX IF NOT EXISTS budget_requests_user_id_idx ON public.budget_requests(user_id);
+CREATE INDEX IF NOT EXISTS budget_requests_status_idx ON public.budget_requests(status);
+
+-- Disable RLS for budget_requests
+ALTER TABLE public.budget_requests DISABLE ROW LEVEL SECURITY;
+
+-- Grant permissions
+GRANT ALL ON public.budget_requests TO authenticated;
+GRANT SELECT, INSERT ON public.budget_requests TO anon;
+
 -- Create views for easier querying
 CREATE OR REPLACE VIEW public.organization_budget_summary AS
 SELECT 
@@ -145,11 +171,11 @@ CREATE TRIGGER update_organization_expenses_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- Add RLS policies
-ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.organization_budgets ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.budget_allocations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.organization_expenses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organizations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_members DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_budgets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.budget_allocations DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_expenses DISABLE ROW LEVEL SECURITY;
 
 -- Create policies (customize these based on your authentication setup)
 CREATE POLICY "Organizations are viewable by authenticated users"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,12 +7,235 @@ import { useAuth } from "@/lib/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, DollarSign, Building2, ArrowLeft, Loader2, Users, ChevronRight } from "lucide-react";
+import { CalendarIcon, DollarSign, Building2, ArrowLeft, Loader2, Users, ChevronRight, Search, RefreshCw, UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { assignRegionalAdmin } from "@/utils/directDatabaseAccess";
+
+interface AdminUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  first_name?: string;
+  last_name?: string;
+  role?: string;
+  status?: string;
+}
+
+interface RegionalAdminAssignDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  regionId: string;
+  regionName: string;
+  onAdminAssigned: () => void;
+}
+
+function RegionalAdminAssignDialog({ 
+  open, 
+  onOpenChange, 
+  regionId, 
+  regionName,
+  onAdminAssigned 
+}: RegionalAdminAssignDialogProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [availableAdmins, setAvailableAdmins] = useState<AdminUser[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [loadingAvailableAdmins, setLoadingAvailableAdmins] = useState(false);
+  const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      loadAvailableAdmins();
+    }
+  }, [open]);
+
+  const loadAvailableAdmins = async () => {
+    setLoadingAvailableAdmins(true);
+    setAvailableAdmins([]);
+    
+    try {
+      // Get users that are regional admins and not already assigned
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, first_name, last_name, role, status')
+        .eq('status', 'active')
+        .eq('role', 'regional_admin')
+        .order('email');
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Get all assigned regional admins
+      const { data: assignedAdmins, error: assignedError } = await supabase
+        .from('user_regions')
+        .select('user_id');
+      const assignedIds = new Set((assignedAdmins || []).map(a => a.user_id));
+      
+      // Only show regional_admins not already assigned
+      const availableUsers = data.filter(user => !assignedIds.has(user.id));
+      
+      // Format user data
+      const formattedUsers = availableUsers.map(user => ({
+        id: user.id,
+        email: user.email,
+        full_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role,
+        status: user.status
+      }));
+      
+      setAvailableAdmins(formattedUsers);
+    } catch (error) {
+      console.error("Error loading available users:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load available users",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAvailableAdmins(false);
+    }
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const assignAdmin = async (userId: string) => {
+    setAssigningUserId(userId);
+    
+    try {
+      const result = await assignRegionalAdmin(userId, regionId);
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Regional administrator assigned successfully",
+        });
+        onAdminAssigned();
+        onOpenChange(false);
+      } else {
+        toast({
+          title: "Error",
+          description: result.message || "Failed to assign regional administrator",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error assigning regional admin:", error);
+      toast({
+        title: "Error",
+        description: error.message || "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningUserId(null);
+    }
+  };
+
+  // Filter admins based on search term
+  const filteredAdmins = searchTerm.trim() === '' 
+    ? availableAdmins 
+    : availableAdmins.filter(admin => 
+        admin.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (admin.full_name && admin.full_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Assign Regional Administrator</DialogTitle>
+          <DialogDescription>
+            Select a user to assign as administrator for {regionName}
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="flex justify-between items-center">
+            <Label>Available Users</Label>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={loadAvailableAdmins}
+              disabled={loadingAvailableAdmins}
+            >
+              <RefreshCw className={`h-4 w-4 ${loadingAvailableAdmins ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Input
+              placeholder="Search by name or email"
+              value={searchTerm}
+              onChange={handleSearch}
+            />
+            <Button variant="outline" size="icon">
+              <Search className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {loadingAvailableAdmins ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredAdmins.length === 0 ? (
+            <div className="text-center py-2 text-muted-foreground border rounded-md p-4">
+              {searchTerm ? "No matching users found" : "No available users found"}
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[200px] overflow-y-auto border rounded-md p-2">
+              {filteredAdmins.map((admin) => (
+                <div
+                  key={admin.id}
+                  className="flex items-center justify-between p-2 border rounded-md"
+                >
+                  <div>
+                    <p className="font-medium">{admin.full_name || "Unnamed User"}</p>
+                    <p className="text-sm text-muted-foreground">{admin.email}</p>
+                    {admin.role && (
+                      <Badge variant="outline" className="mt-1 text-xs">
+                        {admin.role === 'org_admin' || admin.role === 'organization_admin' 
+                          ? 'Organization Admin' 
+                          : admin.role}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => assignAdmin(admin.id)}
+                    disabled={assigningUserId === admin.id}
+                  >
+                    {assigningUserId === admin.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <UserPlus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1];
@@ -31,8 +254,130 @@ export default function RegionView() {
   const [allocatedBudget, setAllocatedBudget] = useState(0);
   const [activeOrgs, setActiveOrgs] = useState(0);
   const [totalFarmers, setTotalFarmers] = useState(0);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Function to fetch region data
+  const fetchRegionData = useCallback(async () => {
+    if (!regionId) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Fetch region details
+      const { data: regionData, error: regionError } = await supabase
+        .from("regions")
+        .select("*")
+        .eq("id", regionId)
+        .single();
+        
+      if (regionError) throw regionError;
+      
+      // Fetch regional administrator if assigned
+      const { data: adminData, error: adminError } = await supabase
+        .from("user_regions")
+        .select(`
+          id,
+          users:user_id (
+            id, 
+            first_name, 
+            last_name, 
+            email,
+            status
+          )
+        `)
+        .eq('region_id', regionId)
+        .single();
+        
+      if (!adminError && adminData && adminData.users) {
+        // Add admin information to region data
+        const userData = adminData.users as any;
+        regionData.admin = {
+          id: userData.id,
+          name: `${userData.first_name} ${userData.last_name}`,
+          email: userData.email,
+          status: userData.status
+        };
+      }
+      
+      setRegion(regionData);
+      
+      // Fetch provinces in this region
+      const { data: provinceData, error: provinceError } = await supabase
+        .from("provinces")
+        .select("*")
+        .eq("region_id", regionId);
+        
+      if (provinceError) throw provinceError;
+      setProvinces(provinceData || []);
+      
+      // Fetch organizations in this region
+      const { data: orgData, error: orgError } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("region_id", regionId);
+        
+      if (orgError) throw orgError;
+      setOrganizations(orgData || []);
+      setActiveOrgs(orgData?.filter(org => org.status === 'active').length || 0);
+      
+      // Calculate total farmers
+      const totalFarmers = orgData?.reduce((sum, org) => sum + (org.member_count || 0), 0) || 0;
+      setTotalFarmers(totalFarmers);
+      
+      // Fetch region budget
+      const { data: budgetData, error: budgetError } = await supabase
+        .from("region_budgets")
+        .select("amount")
+        .eq("region_id", regionId)
+        .single();
+        
+      if (!budgetError && budgetData) {
+        setTotalBudget(budgetData.amount);
+      }
+      
+      // Try to fetch organization budgets, but handle the case where the table doesn't exist yet
+      try {
+        const { data: orgBudgets, error: orgBudgetError } = await supabase
+          .from("organization_budgets")
+          .select("total_allocation")
+          .in("organization_id", orgData?.map(org => org.id) || []);
+          
+        if (orgBudgetError) {
+          // If the error is about the table not existing, just set allocated budget to 0
+          if (orgBudgetError.message?.includes('relation "organization_budgets" does not exist') ||
+              orgBudgetError.message?.includes('Could not find a relationship between')) {
+            console.warn("organization_budgets table does not exist yet, setting allocated budget to 0");
+            setAllocatedBudget(0);
+          } else {
+            // For other errors, log them but don't throw (non-critical feature)
+            console.error("Error fetching organization budgets:", orgBudgetError);
+            setAllocatedBudget(0);
+          }
+        } else if (orgBudgets) {
+          // Successfully got the budget data
+          const totalAllocated = orgBudgets.reduce((sum, budget) => sum + (budget.total_allocation || 0), 0);
+          setAllocatedBudget(totalAllocated);
+        }
+      } catch (err) {
+        // Catch any unexpected errors
+        console.error("Unexpected error fetching organization budgets:", err);
+        setAllocatedBudget(0);
+      }
+    } catch (err: any) {
+      console.error("Error fetching region data:", err);
+      setError(err.message || "Failed to load region data");
+      toast({
+        title: "Error",
+        description: "Failed to load region data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [regionId, selectedYear, toast, setRegion, setProvinces, setOrganizations, setActiveOrgs, setTotalFarmers, setTotalBudget, setAllocatedBudget, setError, setLoading]);
 
   useEffect(() => {
     if (!regionId) {
@@ -40,100 +385,8 @@ export default function RegionView() {
       return;
     }
 
-    const fetchRegionData = async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Fetch region details
-        const { data: regionData, error: regionError } = await supabase
-          .from("regions")
-          .select("*")
-          .eq("id", regionId)
-          .single();
-          
-        if (regionError) throw regionError;
-        setRegion(regionData);
-        
-        // Fetch provinces in this region
-        const { data: provinceData, error: provinceError } = await supabase
-          .from("provinces")
-          .select("*")
-          .eq("region_id", regionId);
-          
-        if (provinceError) throw provinceError;
-        setProvinces(provinceData || []);
-        
-        // Fetch organizations in this region
-        const { data: orgData, error: orgError } = await supabase
-          .from("organizations")
-          .select("*")
-          .eq("region_id", regionId);
-          
-        if (orgError) throw orgError;
-        setOrganizations(orgData || []);
-        setActiveOrgs(orgData?.filter(org => org.status === 'active').length || 0);
-        
-        // Calculate total farmers
-        const totalFarmers = orgData?.reduce((sum, org) => sum + (org.member_count || 0), 0) || 0;
-        setTotalFarmers(totalFarmers);
-        
-        // Fetch region budget
-        const { data: budgetData, error: budgetError } = await supabase
-          .from("region_budgets")
-          .select("amount")
-          .eq("region_id", regionId)
-          .eq("fiscal_year", selectedYear)
-          .single();
-          
-        if (!budgetError && budgetData) {
-          setTotalBudget(budgetData.amount);
-        }
-        
-        // Try to fetch organization budgets, but handle the case where the table doesn't exist yet
-        try {
-          const { data: orgBudgets, error: orgBudgetError } = await supabase
-            .from("organization_budgets")
-            .select("total_allocation")
-            .in("organization_id", orgData?.map(org => org.id) || [])
-            .eq("fiscal_year", selectedYear);
-            
-          if (orgBudgetError) {
-            // If the error is about the table not existing, just set allocated budget to 0
-            if (orgBudgetError.message?.includes('relation "organization_budgets" does not exist') ||
-                orgBudgetError.message?.includes('Could not find a relationship between')) {
-              console.warn("organization_budgets table does not exist yet, setting allocated budget to 0");
-              setAllocatedBudget(0);
-            } else {
-              // For other errors, log them but don't throw (non-critical feature)
-              console.error("Error fetching organization budgets:", orgBudgetError);
-              setAllocatedBudget(0);
-            }
-          } else if (orgBudgets) {
-            // Successfully got the budget data
-            const totalAllocated = orgBudgets.reduce((sum, budget) => sum + (budget.total_allocation || 0), 0);
-            setAllocatedBudget(totalAllocated);
-          }
-        } catch (err) {
-          // Catch any unexpected errors
-          console.error("Unexpected error fetching organization budgets:", err);
-          setAllocatedBudget(0);
-        }
-      } catch (err: any) {
-        console.error("Error fetching region data:", err);
-        setError(err.message || "Failed to load region data");
-        toast({
-          title: "Error",
-          description: "Failed to load region data",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchRegionData();
-  }, [regionId, selectedYear]);
+  }, [fetchRegionData]);
 
   // Navigate back to regions list
   const handleBack = () => {
@@ -351,13 +604,47 @@ export default function RegionView() {
                       <div>
                         <p className="font-medium">{region.admin.name}</p>
                         <p className="text-sm text-muted-foreground">{region.admin.email}</p>
+                        <Badge variant={region.admin.status === 'active' ? 'default' : 'secondary'} className="mt-1">
+                          {region.admin.status}
+                        </Badge>
                       </div>
-                      <Button variant="outline" size="sm">View Profile</Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            navigate(`/superadmin/user-profile/${region.admin.id}`);
+                          }}
+                        >
+                          View Profile
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            toast({
+                              title: "Changing Region Admin",
+                              description: `Navigating to manage administrators for ${region?.name}`,
+                              duration: 3000
+                            });
+                            navigate(`/superadmin/user-management?tab=regional-admins&region=${regionId}`);
+                          }}
+                        >
+                          <Users className="h-4 w-4 mr-1" />
+                          Change Admin
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <div className="bg-muted/50 p-4 rounded-md text-center">
                       <p className="text-muted-foreground mb-2">No regional administrator assigned</p>
-                      <Button size="sm">Assign Administrator</Button>
+                      <Button 
+                        size="sm"
+                        onClick={() => setIsAssignDialogOpen(true)}
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        Assign Administrator
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -523,6 +810,20 @@ export default function RegionView() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Admin Assignment Dialog */}
+      <RegionalAdminAssignDialog
+        open={isAssignDialogOpen}
+        onOpenChange={setIsAssignDialogOpen}
+        regionId={regionId || ''}
+        regionName={region?.name || ''}
+        onAdminAssigned={() => {
+          // Refresh the region data to show the newly assigned admin
+          if (regionId) {
+            fetchRegionData();
+          }
+        }}
+      />
     </DashboardLayout>
   );
 } 
