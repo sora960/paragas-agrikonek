@@ -92,8 +92,6 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       { label: "Organizations", path: "/superadmin/organizations", icon: Building },
       { label: "Budget Management", path: "/superadmin/budget-management", icon: DollarSign },
       { label: "Budget Requests", path: "/superadmin/budget-requests", icon: Receipt },
-      { label: "Notifications", path: "/superadmin/notifications", icon: BellRing },
-      { label: "System Logs", path: "/superadmin/logs", icon: FileText },
       { label: "Settings", path: "/superadmin/settings", icon: Settings },
     ],
     regional: [
