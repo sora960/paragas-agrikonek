@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { 
   getUserNotificationPreferences, 
   updateNotificationPreferences, 
@@ -12,6 +12,7 @@ import {
 } from "@/services/notificationService";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 
 export default function NotificationSettings() {
@@ -20,16 +21,13 @@ export default function NotificationSettings() {
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const categoryLabels = {
-    system: "System notifications",
-    message: "Message notifications",
-    task: "Task assignments and updates",
-    alert: "Alert notifications",
-    report: "Report notifications",
-    farm: "Farm activity notifications",
-    budget: "Budget updates",
-    other: "Other notifications"
+    system: "System Notifications",
+    budget: "Budget Updates",
+    message: "Messages",
+    alert: "Alerts and Reminders"
   };
 
   useEffect(() => {
@@ -48,13 +46,9 @@ export default function NotificationSettings() {
             push_enabled: true,
             category_preferences: {
               system: true,
-              message: true,
-              task: true,
-              alert: true,
-              report: true,
-              farm: true,
               budget: true,
-              other: true
+              message: true,
+              alert: true
             },
             quiet_hours_start: undefined,
             quiet_hours_end: undefined
@@ -136,6 +130,10 @@ export default function NotificationSettings() {
     }
   };
 
+  const handleBack = () => {
+    navigate(-1); // Go back to the previous page
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-[400px]">
@@ -146,7 +144,13 @@ export default function NotificationSettings() {
 
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">Notification Settings</h1>
+      <div className="flex items-center mb-6">
+        <Button variant="outline" size="sm" onClick={handleBack} className="mr-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
+        </Button>
+        <h1 className="text-3xl font-bold">Notification Settings</h1>
+      </div>
       
       <Tabs defaultValue="channels">
         <TabsList className="mb-6">
@@ -220,6 +224,9 @@ export default function NotificationSettings() {
                     <Label htmlFor={`category-${category}`} className="text-base">
                       {label}
                     </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {getNotificationDescription(category)}
+                    </p>
                   </div>
                   <Switch
                     id={`category-${category}`}
@@ -297,15 +304,35 @@ export default function NotificationSettings() {
       
       <div className="mt-6 flex justify-end">
         <Button 
-          variant="default" 
-          size="lg" 
-          onClick={handleSavePreferences}
+          onClick={handleSavePreferences} 
           disabled={isSaving}
+          className="px-6"
         >
-          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save Changes
+          {isSaving ? 
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saving...
+            </> : 
+            'Save Changes'
+          }
         </Button>
       </div>
     </div>
   );
+}
+
+// Helper function to get descriptions for each notification type
+function getNotificationDescription(category: string): string {
+  switch (category) {
+    case 'system':
+      return 'Important updates about the system, including maintenance and new features';
+    case 'budget':
+      return 'Updates about budget allocations, approvals, and financial activities';
+    case 'message':
+      return 'Notifications when you receive new messages from other users';
+    case 'alert':
+      return 'Time-sensitive alerts and important reminders';
+    default:
+      return '';
+  }
 } 

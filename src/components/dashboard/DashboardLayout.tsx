@@ -98,9 +98,11 @@ export default function DashboardLayout({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link to={getProfilePath()}>Profile</Link>
-                </DropdownMenuItem>
+                {userRole !== "superadmin" && (
+                  <DropdownMenuItem asChild>
+                    <Link to={getProfilePath()}>Profile</Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link to="/settings/notifications">Notification Settings</Link>
                 </DropdownMenuItem>

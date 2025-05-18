@@ -64,51 +64,48 @@ export default function BudgetManagement() {
 
   const fetchRegions = async () => {
     setLoading(true);
+    setError(null);
     
     try {
-      // Try using direct SQL to bypass RLS if needed
-      const { data, error } = await supabase
+      // Direct query to regions table instead of using RPC
+      const { data: regionsData, error: regionsError } = await supabase
         .from("regions")
-        .select("*");
+        .select("id, name")
+        .order("name");
       
-      if (error) throw error;
+      if (regionsError) throw regionsError;
       
-      if (data) {
-        // Also get the current budgets for regions
-        const { data: budgetData, error: budgetError } = await supabase
-          .from("region_budgets")
-          .select("region_id, amount");
-          
-        if (budgetError) throw budgetError;
+      // Get existing budget allocations
+      const { data: budgetData, error: budgetError } = await supabase
+        .from("region_budgets")
+        .select("region_id, amount");
         
-        // Create a map of region ID to budget amount
-        const budgetMap: Record<string, number> = {};
-        if (budgetData) {
-          budgetData.forEach((budget: any) => {
-            budgetMap[budget.region_id] = budget.amount || 0;
-          });
-        }
-        
-        // Create a map of region ID to allocation amount (initialize with current values)
-        const regionAllocations: Record<string, number> = {};
-        data.forEach((region: any) => {
-          regionAllocations[region.id] = budgetMap[region.id] || 0;
+      if (budgetError) throw budgetError;
+      
+      // Create a map of region ID to budget amount
+      const budgetMap: Record<string, number> = {};
+      if (budgetData) {
+        budgetData.forEach((budget: any) => {
+          budgetMap[budget.region_id] = budget.amount || 0;
         });
-        
-        // Set the initial allocations state
-        setAllocations(regionAllocations);
-        
-        // Format regions with current budget
-        const formattedRegions = data.map((region: any) => ({
-          id: region.id,
-          name: region.name,
-          current_budget: budgetMap[region.id] || 0
-        }));
-        
-        setRegions(formattedRegions);
-      } else {
-        setRegions([]);
       }
+      
+      // Set up allocations from the fetched data
+      const regionAllocations: Record<string, number> = {};
+      regionsData?.forEach((region: any) => {
+        regionAllocations[region.id] = budgetMap[region.id] || 0;
+      });
+      
+      setAllocations(regionAllocations);
+      
+      // Format regions with current budget
+      const formattedRegions = regionsData?.map((region: any) => ({
+        id: region.id,
+        name: region.name,
+        current_budget: budgetMap[region.id] || 0
+      })) || [];
+      
+      setRegions(formattedRegions);
     } catch (err: any) {
       console.error("Error fetching regions:", err);
       setError(err.message || "Failed to load regions");
@@ -145,7 +142,8 @@ export default function BudgetManagement() {
       // Create an array of upsert operations
       const upsertData = Object.entries(allocations).map(([regionId, amount]) => ({
         region_id: regionId,
-        amount: amount
+        amount: amount,
+        updated_at: new Date().toISOString()
       }));
       
       // Use upsert to update or insert budget records

@@ -3,6 +3,8 @@
  * These functions use direct fetch calls to the Supabase REST API
  */
 
+import { supabase } from '@/lib/supabase';
+
 // Get the API keys from environment
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://supabase.eztechsolutions.pro';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -21,147 +23,119 @@ const getAuthHeaders = (token?: string) => {
 };
 
 /**
- * Assign a user as a regional admin
- * @param userId User ID to assign
- * @param regionId Region ID to assign the user to
- * @returns Promise<{ success: boolean, message: string, data?: any }>
+ * Direct method to assign a regional administrator to a region
+ * This bypasses RLS by using a stored procedure
  */
-export async function assignRegionalAdmin(
-  userId: string, 
-  regionId: string
-): Promise<{ success: boolean, message: string, data?: any }> {
+export const assignRegionalAdmin = async (userId: string, regionId: string) => {
   try {
-    console.log(`Attempting to assign user ${userId} to region ${regionId}`);
+    // Call the stored procedure
+    const { data, error } = await supabase.rpc('admin_assign_regional_admin', {
+      p_user_id: userId,
+      p_region_id: regionId
+    });
     
-    // First check if the assignment already exists
-    const checkResponse = await fetch(
-      `${supabaseUrl}/rest/v1/user_regions?user_id=eq.${userId}&region_id=eq.${regionId}`,
-      {
-        method: 'GET',
-        headers: {
-          ...getAuthHeaders(),
-          'Prefer': 'return=representation'
-        }
-      }
-    );
+    if (error) throw error;
     
-    if (!checkResponse.ok) {
-      console.error("Error checking existing assignment:", await checkResponse.text());
-      return { 
-        success: false, 
-        message: `Error checking existing assignment: ${checkResponse.statusText}` 
-      };
-    }
-    
-    const existingAssignments = await checkResponse.json();
-    
-    if (existingAssignments && existingAssignments.length > 0) {
-      return { 
-        success: true, 
-        message: "User is already assigned to this region",
-        data: existingAssignments[0]
-      };
-    }
-    
-    // If no existing assignment, create one directly with SQL to bypass RLS
-    const sqlQuery = `
-      INSERT INTO public.user_regions (user_id, region_id, created_at)
-      VALUES ('${userId}', '${regionId}', NOW());
-      
-      UPDATE public.users
-      SET role = 'regional_admin'
-      WHERE id = '${userId}' AND role NOT IN ('regional_admin', 'superadmin');
-    `;
-    
-    const sqlResponse = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/execute_sql`,
-      {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          sql_query: sqlQuery
-        })
-      }
-    );
-    
-    if (!sqlResponse.ok) {
-      const errorText = await sqlResponse.text();
-      console.error("Error executing SQL:", errorText);
-      
-      // If the SQL approach failed, try the simple insert approach
-      console.log("SQL failed, trying direct insert...");
-      const insertResponse = await fetch(
-        `${supabaseUrl}/rest/v1/user_regions`,
-        {
-          method: 'POST',
-          headers: {
-            ...getAuthHeaders(),
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            region_id: regionId,
-            created_at: new Date().toISOString()
-          })
-        }
-      );
-      
-      if (!insertResponse.ok) {
-        const insertErrorText = await insertResponse.text();
-        console.error("Error inserting user_region:", insertErrorText);
-        return { 
-          success: false, 
-          message: `Error assigning regional admin: ${insertErrorText}` 
-        };
-      }
-      
-      const insertedData = await insertResponse.json();
-      console.log("Successfully inserted user_region:", insertedData);
-      
-      // Update the user's role
-      try {
-        await fetch(
-          `${supabaseUrl}/rest/v1/users?id=eq.${userId}`,
-          {
-            method: 'PATCH',
-            headers: {
-              ...getAuthHeaders(),
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({
-              role: 'regional_admin',
-              updated_at: new Date().toISOString()
-            })
-          }
-        );
-        console.log("Successfully updated user role to regional_admin");
-      } catch (roleError) {
-        console.warn("Failed to update user role, but assignment was successful:", roleError);
-      }
-      
-      return { 
-        success: true, 
-        message: "User successfully assigned as regional admin",
-        data: insertedData
-      };
-    }
-    
-    console.log("Successfully assigned regional admin via SQL");
-    return { 
-      success: true, 
-      message: "User successfully assigned as regional admin"
-    };
+    return { success: true, data };
   } catch (error: any) {
-    console.error("Error in assignRegionalAdmin:", error);
-    return { 
-      success: false, 
-      message: error.message || "An unexpected error occurred" 
-    };
+    console.error('Error in assignRegionalAdmin:', error);
+    return { success: false, message: error.message };
   }
-}
+};
+
+/**
+ * Direct method to update region budget allocations
+ * This bypasses RLS by using a stored procedure
+ */
+export const updateRegionBudgetDirect = async (
+  regionId: string, 
+  amount: number,
+  fiscalYear: number = new Date().getFullYear()
+) => {
+  try {
+    // Call a stored procedure that will be created in the database
+    const { data, error } = await supabase.rpc('admin_update_region_budget', {
+      p_region_id: regionId,
+      p_amount: amount,
+      p_fiscal_year: fiscalYear
+    });
+    
+    if (error) throw error;
+    
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('Error in updateRegionBudgetDirect:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+/**
+ * Direct method to process a budget request
+ */
+export const directProcessBudgetRequest = async (
+  requestId: string,
+  status: "approved" | "rejected",
+  response: string = "",
+  userId?: string
+) => {
+  try {
+    // Call the stored procedure
+    const { data, error } = await supabase.rpc('admin_process_budget_request', {
+      p_request_id: requestId,
+      p_status: status,
+      p_response: response,
+      p_user_id: userId
+    });
+    
+    if (error) throw error;
+    
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('Error in directProcessBudgetRequest:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+/**
+ * Get all regions with their budget allocations
+ * Direct method that bypasses RLS
+ */
+export const getRegionBudgetsDirect = async () => {
+  try {
+    const { data, error } = await supabase.rpc('admin_get_region_budgets');
+    
+    if (error) throw error;
+    
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('Error in getRegionBudgetsDirect:', error);
+    return { success: false, message: error.message, data: [] };
+  }
+};
+
+/**
+ * Save all region budget allocations in a batch
+ */
+export const saveRegionBudgetsBatch = async (allocations: Record<string, number>) => {
+  try {
+    // Convert allocations object to array format
+    const allocationsArray = Object.entries(allocations).map(([regionId, amount]) => ({
+      region_id: regionId,
+      amount: amount
+    }));
+    
+    const { data, error } = await supabase.rpc('admin_save_region_budgets_batch', {
+      p_allocations: allocationsArray
+    });
+    
+    if (error) throw error;
+    
+    return { success: true, data };
+  } catch (error: any) {
+    console.error('Error in saveRegionBudgetsBatch:', error);
+    return { success: false, message: error.message };
+  }
+};
 
 /**
  * Alternative method to assign regional admin using SQL bypass

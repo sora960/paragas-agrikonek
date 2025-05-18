@@ -511,19 +511,6 @@ export default function RegionView() {
           
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Provinces</CardTitle>
-              <Badge variant="outline">{provinces.length}</Badge>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{provinces.length}</div>
-              <p className="text-xs text-muted-foreground">
-                In this region
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Farmers</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
@@ -540,7 +527,6 @@ export default function RegionView() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="organizations">Organizations</TabsTrigger>
-            <TabsTrigger value="provinces">Provinces</TabsTrigger>
             <TabsTrigger value="budget">Budget</TabsTrigger>
           </TabsList>
           
@@ -716,51 +702,6 @@ export default function RegionView() {
                 </div>
                 <Button size="sm">Add Organization</Button>
               </CardFooter>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="provinces" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Provinces</CardTitle>
-                <CardDescription>
-                  Provinces in {region?.name}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {provinces.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No provinces found in this region
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Organizations</TableHead>
-                        <TableHead>Farmers</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {provinces.map(province => (
-                        <TableRow key={province.id}>
-                          <TableCell className="font-medium">{province.name}</TableCell>
-                          <TableCell>{province.organizations || 0}</TableCell>
-                          <TableCell>{province.farmers || 0}</TableCell>
-                          <TableCell>
-                            <Badge 
-                              variant={province.status === 'active' ? 'default' : 'secondary'}
-                            >
-                              {province.status}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
             </Card>
           </TabsContent>
           
