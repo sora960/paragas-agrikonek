@@ -2,10 +2,6 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/lib/supabase";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import CropManagement from "@/components/farmer/CropManagement";
-import ResourceManagement from "@/components/farmer/ResourceManagement";
-import FieldReporting from "@/components/farmer/FieldReporting";
 import OrganizationAccess from "@/components/farmer/OrganizationAccess";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -29,7 +25,6 @@ interface FarmerStats {
   totalCrops: number;
   activePlots: number;
   availablePlots: number;
-  totalResources: number;
   upcomingHarvests: number;
   nextHarvestDays: number;
   cropsLastMonth: number;
@@ -49,13 +44,11 @@ interface MonthlyActivity {
 
 export default function FarmerDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<FarmerStats>({
     totalCrops: 0,
     activePlots: 0,
     availablePlots: 0,
-    totalResources: 0,
     upcomingHarvests: 0,
     nextHarvestDays: 0,
     cropsLastMonth: 0
@@ -242,27 +235,11 @@ export default function FarmerDashboard() {
         setCropDistribution(cropDistData);
       }
       
-      // Fetch resources count (assuming we have a resources table)
-      let resourcesCount = 24; // Default value
-      try {
-        const { count, error: resourcesError } = await supabase
-          .from('resources')
-          .select('id', { count: 'exact', head: true })
-          .eq('farmer_id', farmerId);
-          
-        if (!resourcesError && count !== null) {
-          resourcesCount = count;
-        }
-      } catch (err) {
-        console.warn('Could not fetch resources count:', err);
-      }
-      
       // Update stats
       setStats({
         totalCrops: crops.length,
         activePlots,
         availablePlots,
-        totalResources: resourcesCount,
         upcomingHarvests,
         nextHarvestDays,
         cropsLastMonth
@@ -284,15 +261,6 @@ export default function FarmerDashboard() {
           <h2 className="text-3xl font-bold tracking-tight">Welcome back, {user?.email}</h2>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="crops">Crop Management</TabsTrigger>
-            <TabsTrigger value="resources">Resources</TabsTrigger>
-            <TabsTrigger value="reports">Field Reports</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-4">
             {loading ? (
               <div className="flex items-center justify-center min-h-[400px]">
                 <div className="text-muted-foreground">Loading dashboard data...</div>
@@ -303,7 +271,7 @@ export default function FarmerDashboard() {
               </div>
             ) : (
               <>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Total Crops</CardTitle>
@@ -323,17 +291,6 @@ export default function FarmerDashboard() {
                       <div className="text-2xl font-bold">{stats.activePlots}</div>
                       <p className="text-xs text-muted-foreground">
                         {stats.availablePlots} available plots
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Resources</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{stats.totalResources}</div>
-                      <p className="text-xs text-muted-foreground">
-                        5 low in stock
                       </p>
                     </CardContent>
                   </Card>
@@ -401,20 +358,6 @@ export default function FarmerDashboard() {
                 </div>
               </>
             )}
-          </TabsContent>
-
-          <TabsContent value="crops">
-            <CropManagement />
-          </TabsContent>
-
-          <TabsContent value="resources">
-            <ResourceManagement />
-          </TabsContent>
-
-          <TabsContent value="reports">
-            <FieldReporting />
-          </TabsContent>
-        </Tabs>
       </div>
     </DashboardLayout>
   );

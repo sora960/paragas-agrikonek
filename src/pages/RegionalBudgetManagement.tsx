@@ -144,12 +144,12 @@ export default function RegionalBudgetManagement() {
       }
     } catch (err: any) {
       console.error("Error loading data:", err);
-      setError(err.message || "Failed to load data");
-      toast({
-        title: "Error loading data",
-        description: err.message || "Failed to load budget data",
-        variant: "destructive"
-      });
+        setError(err.message || "Failed to load data");
+        toast({
+          title: "Error loading data",
+          description: err.message || "Failed to load budget data",
+          variant: "destructive"
+        });
     } finally {
       setLoading(false);
     }
@@ -172,12 +172,12 @@ export default function RegionalBudgetManagement() {
       setAllocations(data || []);
     } catch (err: any) {
       console.error("Error loading allocation history:", err);
-      setError(err.message || "Failed to load allocation history");
-      toast({
-        title: "Error",
-        description: "Failed to load allocation history",
-        variant: "destructive"
-      });
+        setError(err.message || "Failed to load allocation history");
+        toast({
+          title: "Error",
+          description: "Failed to load allocation history",
+          variant: "destructive"
+        });
     } finally {
       setLoading(false);
     }

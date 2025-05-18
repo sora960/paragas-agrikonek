@@ -230,7 +230,7 @@ export default function MessagingPage() {
             <p className="text-muted-foreground">
               Communicate with organizations in your region
             </p>
-          </div>
+      </div>
           <Button 
             onClick={fetchMessages}
             variant="outline"
@@ -285,8 +285,8 @@ export default function MessagingPage() {
                             </div>
                             <p className="text-xs text-muted-foreground">
                               {new Date(msg.created_at).toLocaleString()}
-                            </p>
-                          </div>
+              </p>
+            </div>
                           <p className="mt-2 text-sm">{msg.content}</p>
                           <div className="mt-2 text-xs text-right text-muted-foreground">
                             {msg.is_read ? (
@@ -297,8 +297,8 @@ export default function MessagingPage() {
                               <span className="flex items-center justify-end gap-1">
                                 <AlertCircle className="h-3 w-3" /> Not read yet
                               </span>
-                            )}
-                          </div>
+          )}
+        </div>
                         </Card>
                       ))}
                   </div>

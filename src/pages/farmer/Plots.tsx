@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,8 +10,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import { 
+  Eye, 
+  Edit, 
+  Trash2, 
+  Droplet, 
+  Sprout, 
+  Calendar, 
+  MapPin, 
+  Filter, 
+  SlidersHorizontal,
+  Layers,
+  Leaf,
+  CircleAlert
+} from "lucide-react";
 import { Tabs, TabsList, TabsContent, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface FarmPlot {
   id: string;
@@ -58,6 +75,16 @@ const IRRIGATION_TYPES = [
   'None'
 ];
 
+const SOIL_TYPE_COLORS = {
+  'Clay': 'bg-amber-800',
+  'Sandy': 'bg-yellow-200',
+  'Loamy': 'bg-amber-600',
+  'Silt': 'bg-stone-300',
+  'Peat': 'bg-stone-800',
+  'Chalk': 'bg-gray-100',
+  'Other': 'bg-gray-400'
+};
+
 export default function Plots() {
   const { user } = useAuth();
   const [plots, setPlots] = useState<FarmPlot[]>([]);
@@ -76,6 +103,8 @@ export default function Plots() {
   });
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [plotToDelete, setPlotToDelete] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [cropsCount, setCropsCount] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchPlots();
@@ -86,6 +115,33 @@ export default function Plots() {
       fetchPlotDetails(selectedPlot.id);
     }
   }, [selectedPlot]);
+
+  useEffect(() => {
+    if (plots.length > 0) {
+      fetchCropCounts();
+    }
+  }, [plots]);
+
+  const fetchCropCounts = async () => {
+    try {
+      const plotIds = plots.map(plot => plot.id);
+      const { data, error } = await supabase
+        .from('crops')
+        .select('plot_id, id')
+        .in('plot_id', plotIds);
+        
+      if (error) throw error;
+      
+      const countByPlotId = data.reduce((acc: Record<string, number>, crop) => {
+        acc[crop.plot_id] = (acc[crop.plot_id] || 0) + 1;
+        return acc;
+      }, {});
+      
+      setCropsCount(countByPlotId);
+    } catch (error) {
+      console.error('Error fetching crop counts:', error);
+    }
+  };
 
   const fetchPlots = async () => {
     try {
@@ -253,15 +309,51 @@ export default function Plots() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border-green-300';
       case 'fallow':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'inactive':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border-red-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
+  
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Sprout className="h-4 w-4 mr-1.5" />;
+      case 'fallow':
+        return <Leaf className="h-4 w-4 mr-1.5" />;
+      case 'inactive':
+        return <CircleAlert className="h-4 w-4 mr-1.5" />;
+      default:
+        return null;
+    }
+  };
+
+  const getIrrigationIcon = (type: string) => {
+    switch (type) {
+      case 'Drip':
+        return <Droplet className="h-4 w-4 text-blue-500" />;
+      case 'Sprinkler':
+        return <div className="flex items-center"><Droplet className="h-3 w-3 text-blue-500" /><Droplet className="h-3 w-3 text-blue-500" /><Droplet className="h-3 w-3 text-blue-500" /></div>;
+      case 'Flood':
+        return <div className="flex items-center"><Droplet className="h-3 w-3 text-blue-500" /><Droplet className="h-3 w-3 text-blue-500" /><Droplet className="h-3 w-3 text-blue-500" /><Droplet className="h-3 w-3 text-blue-500" /></div>;
+      case 'Furrow':
+        return <div className="flex items-center"><Droplet className="h-3 w-3 text-blue-500" /><Droplet className="h-3 w-3 text-blue-500" /></div>;
+      case 'Manual':
+        return <Droplet className="h-4 w-4 text-blue-300" />;
+      case 'None':
+        return <Droplet className="h-4 w-4 text-gray-300" />;
+      default:
+        return <Droplet className="h-4 w-4 text-gray-300" />;
+    }
+  };
+
+  const filteredPlots = filterStatus
+    ? plots.filter(plot => plot.status === filterStatus)
+    : plots;
 
   if (loading) {
     return (
@@ -276,11 +368,47 @@ export default function Plots() {
   return (
     <DashboardLayout userRole="farmer">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
+          <div>
           <h1 className="text-3xl font-bold">Farm Plot Management</h1>
+            <p className="text-muted-foreground mt-1">Manage your agricultural land plots</p>
+          </div>
+          
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-2" />
+                  {filterStatus ? `${filterStatus.charAt(0).toUpperCase() + filterStatus.slice(1)} Plots` : "All Plots"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuLabel>Filter Plots</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setFilterStatus(null)}>
+                  All Plots
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilterStatus("active")}>
+                  <Sprout className="h-4 w-4 mr-2" />
+                  Active Plots
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilterStatus("fallow")}>
+                  <Leaf className="h-4 w-4 mr-2" />
+                  Fallow Plots
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setFilterStatus("inactive")}>
+                  <CircleAlert className="h-4 w-4 mr-2" />
+                  Inactive Plots
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
           <Dialog open={showAddPlotDialog} onOpenChange={setShowAddPlotDialog}>
             <DialogTrigger asChild>
-              <Button>Add New Plot</Button>
+                <Button>
+                  <Layers className="h-4 w-4 mr-2" />
+                  Add New Plot
+                </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -362,43 +490,51 @@ export default function Plots() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
-        <div className="grid gap-4">
-          {plots.map((plot) => (
-            <Card key={plot.id}>
-              <CardHeader>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredPlots.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-10 text-center">
+              <div className="bg-muted rounded-full p-6 mb-4">
+                <Layers className="h-12 w-12 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium">No plots found</h3>
+              <p className="text-muted-foreground mb-4">
+                {filterStatus 
+                  ? `You don't have any ${filterStatus} plots. Try changing the filter or add a new plot.` 
+                  : "You haven't added any plots yet. Create your first plot to get started."}
+              </p>
+              <Button onClick={() => setShowAddPlotDialog(true)}>Add New Plot</Button>
+            </div>
+          ) : (
+            filteredPlots.map((plot) => (
+              <Card key={plot.id} className="overflow-hidden border-2 hover:border-primary/50 transition-colors">
+                <div className={`h-2 w-full ${
+                  plot.status === 'active' ? 'bg-green-500' :
+                  plot.status === 'fallow' ? 'bg-yellow-500' :
+                  'bg-red-500'
+                }`} />
+                <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
+                    <div className="flex items-start gap-2">
+                      <Avatar className={`border-2 ${getStatusColor(plot.status)} h-12 w-12`}>
+                        <AvatarFallback className={`${SOIL_TYPE_COLORS[plot.soil_type as keyof typeof SOIL_TYPE_COLORS] || 'bg-gray-300'} text-white`}>
+                          {plot.plot_name.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                   <div>
-                    <CardTitle>{plot.plot_name}</CardTitle>
-                    <CardDescription>
-                      {plot.plot_size} hectares • {plot.plot_location}
-                    </CardDescription>
+                        <CardTitle className="text-xl">{plot.plot_name}</CardTitle>
+                        <div className="flex items-center mt-1 text-sm text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 mr-1" />
+                          {plot.plot_location || "No location"}
+                        </div>
+                      </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedPlot(plot);
-                        setShowDetailsDialog(true);
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View Details
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleUpdatePlotStatus(plot.id, plot.status)}
-                    >
-                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(plot.status)}`}>
-                        {plot.status}
-                      </span>
-                    </Button>
                     <Button
                       variant="destructive"
-                      size="sm"
+                      size="icon"
+                      className="h-8 w-8"
                       onClick={() => {
                         setPlotToDelete(plot.id);
                         setShowDeleteConfirmDialog(true);
@@ -406,41 +542,118 @@ export default function Plots() {
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="text-sm font-medium">Soil Type</span>
-                    <p className="text-sm text-muted-foreground">{plot.soil_type || 'Not specified'}</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-4">
+                    <div className="flex items-center">
+                      <Badge variant="outline" className={`${getStatusColor(plot.status)} flex items-center`}>
+                        {getStatusIcon(plot.status)}
+                        {plot.status.charAt(0).toUpperCase() + plot.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Sprout className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium">
+                        {cropsCount[plot.id] || 0} Crops
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-sm font-medium">{plot.plot_size} hectares</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {getIrrigationIcon(plot.irrigation_type)}
+                      <span className="text-sm">{plot.irrigation_type}</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-sm font-medium">Irrigation Type</span>
-                    <p className="text-sm text-muted-foreground">{plot.irrigation_type || 'Not specified'}</p>
+                  
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="text-xs font-medium">Soil Type:</span>
+                    <div className="flex items-center">
+                      <div className={`h-3 w-3 rounded-full mr-1.5 ${SOIL_TYPE_COLORS[plot.soil_type as keyof typeof SOIL_TYPE_COLORS] || 'bg-gray-300'}`}></div>
+                      <span className="text-xs">{plot.soil_type || 'Not specified'}</span>
                   </div>
                 </div>
               </CardContent>
+                <CardFooter className="pt-0">
+                  <Button 
+                    variant="outline" 
+                    className="w-full" 
+                    onClick={() => {
+                      setSelectedPlot(plot);
+                      setShowDetailsDialog(true);
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Details
+                  </Button>
+                </CardFooter>
             </Card>
-          ))}
+            ))
+          )}
         </div>
 
         <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
-              <DialogTitle>{selectedPlot?.plot_name} Details</DialogTitle>
-              <DialogDescription>
-                View crops and activities for this plot
-              </DialogDescription>
+              <DialogTitle className="flex items-center">
+                <span className={`inline-block w-3 h-3 rounded-full mr-2 ${
+                  selectedPlot?.status === 'active' ? 'bg-green-500' :
+                  selectedPlot?.status === 'fallow' ? 'bg-yellow-500' :
+                  'bg-red-500'
+                }`}></span>
+                {selectedPlot?.plot_name} Details
+              </DialogTitle>
+              <div className="flex flex-wrap gap-2 items-center mt-2">
+                <Badge variant="outline" className={getStatusColor(selectedPlot?.status || '')}>
+                  {getStatusIcon(selectedPlot?.status || '')}
+                  {selectedPlot?.status?.charAt(0).toUpperCase() + selectedPlot?.status?.slice(1) || ''}
+                </Badge>
+                <span className="text-sm">•</span>
+                <span className="text-sm">{selectedPlot?.plot_size} hectares</span>
+                <span className="text-sm">•</span>
+                <div className="flex items-center">
+                  <MapPin className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-sm">{selectedPlot?.plot_location}</span>
+                </div>
+                <span className="text-sm">•</span>
+                <div className="flex items-center">
+                  <div className={`h-3 w-3 rounded-full mr-1.5 ${
+                    SOIL_TYPE_COLORS[selectedPlot?.soil_type as keyof typeof SOIL_TYPE_COLORS] || 'bg-gray-300'
+                  }`}></div>
+                  <span className="text-sm">{selectedPlot?.soil_type}</span>
+                </div>
+                <span className="text-sm">•</span>
+                <div className="flex items-center">
+                  {getIrrigationIcon(selectedPlot?.irrigation_type || '')}
+                  <span className="text-sm ml-1.5">{selectedPlot?.irrigation_type}</span>
+                </div>
+              </div>
             </DialogHeader>
             
             <Tabs defaultValue="crops">
-              <TabsList>
-                <TabsTrigger value="crops">Crops</TabsTrigger>
-                <TabsTrigger value="activities">Activities</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="crops" className="flex items-center">
+                  <Sprout className="h-4 w-4 mr-2" />
+                  Crops ({plotDetails?.crops.length || 0})
+                </TabsTrigger>
+                <TabsTrigger value="activities" className="flex items-center">
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Activities ({plotDetails?.activities.length || 0})
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="crops">
+                {plotDetails?.crops.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Sprout className="h-10 w-10 text-muted-foreground mb-2" />
+                    <h3 className="text-lg font-medium">No crops planted</h3>
+                    <p className="text-muted-foreground mb-4">
+                      This plot doesn't have any crops yet.
+                    </p>
+                    <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>Close</Button>
+                  </div>
+                ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -453,25 +666,36 @@ export default function Plots() {
                   <TableBody>
                     {plotDetails?.crops.map((crop) => (
                       <TableRow key={crop.id}>
-                        <TableCell>{crop.crop_name}</TableCell>
+                          <TableCell className="font-medium">{crop.crop_name}</TableCell>
                         <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            crop.status === 'planted' ? 'bg-green-100 text-green-800' :
-                            crop.status === 'harvested' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
+                            <Badge variant="outline" className={`
+                              ${crop.status === 'planted' ? 'bg-green-100 text-green-800 border-green-300' :
+                                crop.status === 'harvested' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                'bg-yellow-100 text-yellow-800 border-yellow-300'}
+                            `}>
                             {crop.status}
-                          </span>
+                            </Badge>
                         </TableCell>
                         <TableCell>{new Date(crop.planting_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(crop.expected_harvest_date).toLocaleDateString()}</TableCell>
+                          <TableCell>{crop.expected_harvest_date ? new Date(crop.expected_harvest_date).toLocaleDateString() : 'Not set'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                )}
               </TabsContent>
 
               <TabsContent value="activities">
+                {plotDetails?.activities.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Calendar className="h-10 w-10 text-muted-foreground mb-2" />
+                    <h3 className="text-lg font-medium">No recorded activities</h3>
+                    <p className="text-muted-foreground mb-4">
+                      There are no activities recorded for this plot yet.
+                    </p>
+                    <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>Close</Button>
+                  </div>
+                ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -483,13 +707,14 @@ export default function Plots() {
                   <TableBody>
                     {plotDetails?.activities.map((activity) => (
                       <TableRow key={activity.id}>
-                        <TableCell>{activity.activity_type}</TableCell>
+                          <TableCell className="font-medium">{activity.activity_type}</TableCell>
                         <TableCell>{new Date(activity.activity_date).toLocaleDateString()}</TableCell>
                         <TableCell>{activity.description}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                )}
               </TabsContent>
             </Tabs>
           </DialogContent>

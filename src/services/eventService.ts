@@ -1,367 +1,397 @@
 import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
 
 export interface FarmEvent {
   id: string;
+  title: string;
+  date: string;
+  event_type: string;
+  status: 'pending' | 'completed' | 'cancelled';
   farmer_id: string;
-  title: string;
-  description: string | null;
-  event_date: string;
-  end_date: string | null;
-  event_type: "planting" | "harvesting" | "fertilizing" | "pesticide" | "irrigation" | "maintenance" | "other" | "crop";
-  status: "pending" | "completed" | "cancelled";
-  crop_id?: string | null;
-  plot_id?: string | null;
-  created_at: string;
+  reference_id?: string;
+  reference_type?: string;
+  description?: string;
 }
 
-export interface FarmEventInput {
-  title: string;
-  description: string | null;
-  event_date: string;
-  end_date?: string | null;
-  event_type: "planting" | "harvesting" | "fertilizing" | "pesticide" | "irrigation" | "maintenance" | "other" | "crop";
-  status?: "pending" | "completed" | "cancelled";
-  crop_id?: string | null;
-  plot_id?: string | null;
-}
-
-export interface FarmPlot {
-  id: string;
-  plot_name: string;
-}
-
-/**
- * Get all events for a farmer
- */
-export async function getFarmEvents(farmerId: string): Promise<FarmEvent[]> {
-  const { data, error } = await supabase
-    .from('farm_events')
-    .select('*')
-    .eq('farmer_id', farmerId)
-    .order('event_date', { ascending: true });
-  
-  if (error) {
-    console.error('Error fetching events:', error);
-    throw new Error('Failed to fetch events');
-  }
-  
-  return data || [];
-}
-
-/**
- * Create a new farm event
- */
-export async function createFarmEvent(farmerId: string, eventInput: FarmEventInput): Promise<FarmEvent> {
-  const { data, error } = await supabase
-    .from('farm_events')
-    .insert([
-      { 
-        farmer_id: farmerId, 
-        ...eventInput,
-        status: eventInput.status || 'pending'
-      }
-    ])
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error creating event:', error);
-    throw new Error('Failed to create event');
-  }
-  
-  return data;
-}
-
-/**
- * Update an existing farm event
- */
-export async function updateFarmEvent(eventId: string, eventInput: Partial<FarmEventInput>): Promise<FarmEvent> {
-  const { data, error } = await supabase
-    .from('farm_events')
-    .update(eventInput)
-    .eq('id', eventId)
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error updating event:', error);
-    throw new Error('Failed to update event');
-  }
-  
-  return data;
-}
-
-/**
- * Delete a farm event
- */
-export async function deleteFarmEvent(eventId: string): Promise<void> {
-  const { error } = await supabase
-    .from('farm_events')
-    .delete()
-    .eq('id', eventId);
-  
-  if (error) {
-    console.error('Error deleting event:', error);
-    throw new Error('Failed to delete event');
-  }
-}
-
-/**
- * Mark an event as completed
- */
-export async function markEventAsCompleted(eventId: string): Promise<FarmEvent> {
-  const { data, error } = await supabase
-    .from('farm_events')
-    .update({ status: 'completed' })
-    .eq('id', eventId)
-    .select()
-    .single();
-  
-  if (error) {
-    console.error('Error marking event as completed:', error);
-    throw new Error('Failed to update event status');
-  }
-  
-  return data;
-}
-
-/**
- * Get available farm plots
- */
-export async function getFarmPlots(farmerId: string): Promise<FarmPlot[]> {
-  const { data, error } = await supabase
-    .from('farm_plots')
-    .select('id, plot_name')
-    .eq('farmer_id', farmerId)
-    .eq('status', 'active');
-  
-  if (error) {
-    console.error('Error fetching farm plots:', error);
-    throw new Error('Failed to fetch farm plots');
-  }
-  
-  return data || [];
-}
-
-/**
- * Sync crop events with calendar
- * This creates calendar events based on crop planting and harvest dates
- */
-export async function syncCropsToCalendar(farmerId: string): Promise<void> {
+// Fetch events for a specific farmer
+export const getFarmerEvents = async (farmerId: string) => {
   try {
-    // Step 1: Get all the farmer's plots
-    const { data: plots, error: plotsError } = await supabase
-      .from('farm_plots')
-      .select('id')
+    const { data, error } = await supabase
+      .from('farmer_events')
+      .select('*')
       .eq('farmer_id', farmerId);
     
-    if (plotsError) throw plotsError;
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching farmer events:", error);
+    throw error;
+  }
+};
+
+// Add a new event
+export const addEvent = async (event: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('farmer_events')
+      .insert([event])
+      .select()
+      .single();
     
-    if (!plots || plots.length === 0) {
-      console.log('No plots found for farmer, skipping crop sync');
-      return;
-    }
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error adding event:", error);
+    throw error;
+  }
+};
+
+// Update an event
+export const updateEvent = async (eventId: string, updates: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('farmer_events')
+      .update(updates)
+      .eq('id', eventId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error updating event:", error);
+    throw error;
+  }
+};
+
+// Delete an event
+export const deleteEvent = async (eventId: string) => {
+  try {
+    const { error } = await supabase
+      .from('farmer_events')
+      .delete()
+      .eq('id', eventId);
+    
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error("Error deleting event:", error);
+    throw error;
+  }
+};
+
+// Mark event as completed
+export const markEventAsCompleted = async (eventId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('farmer_events')
+      .update({ status: 'completed' })
+      .eq('id', eventId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error marking event as completed:", error);
+    throw error;
+  }
+};
+
+// Get all farm plots for a farmer
+export const getFarmPlots = async (farmerId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('farm_plots')
+      .select('*')
+      .eq('farmer_id', farmerId);
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching farm plots:", error);
+    throw error;
+  }
+};
+
+// Sync all crops to calendar
+export const syncCropsToCalendar = async (farmerId: string) => {
+  try {
+    // First get all crops for this farmer
+    const { data: farmerProfile } = await supabase
+      .from('farmer_profiles')
+      .select('id')
+      .eq('user_id', farmerId)
+      .single();
+    
+    if (!farmerProfile) throw new Error("Farmer profile not found");
+    
+    const { data: plots } = await supabase
+      .from('farm_plots')
+      .select('id, plot_name')
+      .eq('farmer_id', farmerProfile.id);
+    
+    if (!plots || plots.length === 0) return { added: 0 };
     
     const plotIds = plots.map(plot => plot.id);
+    const plotNamesById = plots.reduce((acc: any, plot) => {
+      acc[plot.id] = plot.plot_name;
+      return acc;
+    }, {});
     
-    // Step 2: Get all crops for these plots
+    // Get all crops for these plots
     const { data: crops, error: cropsError } = await supabase
       .from('crops')
-      .select('id, plot_id, crop_name, crop_type, planting_date, expected_harvest_date, status')
+      .select('id, plot_id, crop_name, planting_date, expected_harvest_date, status')
       .in('plot_id', plotIds);
     
     if (cropsError) throw cropsError;
+    if (!crops || crops.length === 0) return { added: 0 };
     
-    if (!crops || crops.length === 0) {
-      console.log('No crops found, skipping sync');
-      return;
+    // Get existing calendar events for these crops to avoid duplicates
+    const { data: existingEvents } = await supabase
+      .from('farmer_events')
+      .select('reference_id, event_type')
+      .eq('farmer_id', farmerId)
+      .in('reference_type', ['crop_planting', 'crop_harvest']);
+    
+    const existingEventMap = (existingEvents || []).reduce((acc: any, event) => {
+      acc[`${event.reference_id}_${event.event_type}`] = true;
+      return acc;
+    }, {});
+    
+    // Prepare events to add
+    const events = [];
+    
+    // Add planting events
+    for (const crop of crops) {
+      const plotName = plotNamesById[crop.plot_id] || 'Unknown Plot';
+      
+      // Add planting event if it doesn't exist and the crop has a planting date
+      if (crop.planting_date && !existingEventMap[`${crop.id}_planting`]) {
+        events.push({
+          farmer_id: farmerId,
+          title: `Plant ${crop.crop_name}`,
+          description: `Planting of ${crop.crop_name} in ${plotName}`,
+          date: crop.planting_date,
+          event_type: 'planting',
+          reference_id: crop.id,
+          reference_type: 'crop_planting',
+          status: crop.status === 'planted' ? 'completed' : 'pending'
+        });
+      }
+      
+      // Add harvest event if it doesn't exist and the crop has an expected harvest date
+      if (crop.expected_harvest_date && !existingEventMap[`${crop.id}_harvest`]) {
+        events.push({
+          farmer_id: farmerId,
+          title: `Harvest ${crop.crop_name}`,
+          description: `Harvesting of ${crop.crop_name} from ${plotName}`,
+          date: crop.expected_harvest_date,
+          event_type: 'harvesting',
+          reference_id: crop.id,
+          reference_type: 'crop_harvest',
+          status: crop.status === 'harvested' ? 'completed' : 'pending'
+        });
+      }
     }
     
-    // Step 3: Get existing calendar events for these crops to avoid duplicates
-    const { data: existingEvents, error: eventsError } = await supabase
-      .from('farm_events')
-      .select('id, crop_id, event_type')
-      .in('crop_id', crops.map(crop => crop.id));
+    // Add all events at once if there are any
+    if (events.length > 0) {
+      const { error: insertError } = await supabase
+        .from('farmer_events')
+        .insert(events);
+      
+      if (insertError) throw insertError;
+    }
+    
+    return { added: events.length };
+  } catch (error) {
+    console.error("Error syncing crops to calendar:", error);
+    throw error;
+  }
+};
+
+// Generate suggested crop activities based on crop type and planting date
+export const generateCropActivities = async (cropId: string) => {
+  try {
+    // Get crop details
+    const { data: crop, error: cropError } = await supabase
+      .from('crops')
+      .select('id, crop_name, crop_type, planting_date, expected_harvest_date, plot_id')
+      .eq('id', cropId)
+      .single();
+    
+    if (cropError) throw cropError;
+    if (!crop) throw new Error("Crop not found");
+    
+    const { data: plot, error: plotError } = await supabase
+      .from('farm_plots')
+      .select('farmer_id, plot_name')
+      .eq('id', crop.plot_id)
+      .single();
+    
+    if (plotError) throw plotError;
+    if (!plot) throw new Error("Plot not found");
+    
+    // Define activity templates based on crop type
+    // These are default activity schedules for different crop types
+    const activityTemplates: Record<string, any[]> = {
+      // For cereal crops like wheat, rice, corn
+      'cereal': [
+        { daysAfterPlanting: 7, type: 'fertilizing', title: 'Initial Fertilizing' },
+        { daysAfterPlanting: 21, type: 'pesticide', title: 'Pest Control' },
+        { daysAfterPlanting: 35, type: 'fertilizing', title: 'Second Fertilizing' },
+        { daysAfterPlanting: 50, type: 'irrigation', title: 'Irrigation Check' }
+      ],
+      // For vegetable crops
+      'vegetable': [
+        { daysAfterPlanting: 5, type: 'irrigation', title: 'Initial Watering' },
+        { daysAfterPlanting: 14, type: 'fertilizing', title: 'First Fertilizing' },
+        { daysAfterPlanting: 21, type: 'pesticide', title: 'Pest Control' },
+        { daysAfterPlanting: 30, type: 'weeding', title: 'Weeding' },
+        { daysAfterPlanting: 45, type: 'fertilizing', title: 'Second Fertilizing' }
+      ],
+      // For fruit crops
+      'fruit': [
+        { daysAfterPlanting: 7, type: 'irrigation', title: 'Initial Watering' },
+        { daysAfterPlanting: 14, type: 'fertilizing', title: 'Fertilizing' },
+        { daysAfterPlanting: 30, type: 'pruning', title: 'Pruning' },
+        { daysAfterPlanting: 60, type: 'pesticide', title: 'Pest Control' },
+        { daysAfterPlanting: 90, type: 'fertilizing', title: 'Second Fertilizing' }
+      ],
+      // Default for any other crop type
+      'default': [
+        { daysAfterPlanting: 7, type: 'irrigation', title: 'Watering' },
+        { daysAfterPlanting: 21, type: 'fertilizing', title: 'Fertilizing' },
+        { daysAfterPlanting: 40, type: 'maintenance', title: 'Maintenance Check' }
+      ]
+    };
+    
+    // Get the appropriate template or use default
+    const templateItems = activityTemplates[crop.crop_type.toLowerCase()] || activityTemplates.default;
+    
+    const plantingDate = new Date(crop.planting_date);
+    const activities = [];
+    const events = [];
+    
+    // Generate activities and corresponding calendar events
+    for (const templateItem of templateItems) {
+      const activityDate = new Date(plantingDate);
+      activityDate.setDate(activityDate.getDate() + templateItem.daysAfterPlanting);
+      
+      // Create activity
+      const activity = {
+        crop_id: crop.id,
+        activity_type: templateItem.type,
+        activity_date: format(activityDate, 'yyyy-MM-dd'),
+        description: `${templateItem.title} for ${crop.crop_name}`,
+        status: 'pending'
+      };
+      
+      activities.push(activity);
+      
+      // Create calendar event
+      events.push({
+        farmer_id: plot.farmer_id,
+        title: `${templateItem.title} - ${crop.crop_name}`,
+        description: `${templateItem.title} for ${crop.crop_name} in ${plot.plot_name}`,
+        date: format(activityDate, 'yyyy-MM-dd'),
+        event_type: templateItem.type,
+        reference_id: crop.id,
+        reference_type: 'crop_activity',
+        status: 'pending'
+      });
+    }
+    
+    // Insert activities
+    if (activities.length > 0) {
+      const { error: activitiesError } = await supabase
+        .from('crop_activities')
+        .insert(activities);
+      
+      if (activitiesError) throw activitiesError;
+    }
+    
+    // Insert events
+    if (events.length > 0) {
+      const { error: eventsError } = await supabase
+        .from('farmer_events')
+        .insert(events);
+      
+      if (eventsError) throw eventsError;
+    }
+    
+    return { 
+      success: true, 
+      activitiesAdded: activities.length,
+      eventsAdded: events.length
+    };
+  } catch (error) {
+    console.error("Error generating crop activities:", error);
+    throw error;
+  }
+};
+
+// Update events when crop details change
+export const updateCropEvents = async (cropId: string, updates: any) => {
+  try {
+    // Get existing events for this crop
+    const { data: events, error: eventsError } = await supabase
+      .from('farmer_events')
+      .select('*')
+      .or(`reference_id.eq.${cropId},crop_id.eq.${cropId}`)
+      .in('reference_type', ['crop_planting', 'crop_harvest', 'crop_activity']);
     
     if (eventsError) throw eventsError;
     
-    // Create a map of existing events by crop ID and type
-    const existingEventMap: Record<string, {planting: boolean, harvesting: boolean}> = {};
-    (existingEvents || []).forEach(event => {
-      if (!existingEventMap[event.crop_id]) {
-        existingEventMap[event.crop_id] = { planting: false, harvesting: false };
-      }
-      
-      if (event.event_type === 'planting') {
-        existingEventMap[event.crop_id].planting = true;
-      } else if (event.event_type === 'harvesting') {
-        existingEventMap[event.crop_id].harvesting = true;
-      }
-    });
+    // No events to update
+    if (!events || events.length === 0) return { updated: 0 };
     
-    // Step 4: Create events for each crop that doesn't already have them
-    const eventsToCreate: any[] = [];
+    const updatePromises = [];
     
-    crops.forEach(crop => {
-      const existingCropEvents = existingEventMap[crop.id] || { planting: false, harvesting: false };
+    for (const event of events) {
+      let shouldUpdate = false;
+      const eventUpdates: any = {};
       
-      // Create planting event if it doesn't exist and has a planting date
-      if (!existingCropEvents.planting && crop.planting_date) {
-        eventsToCreate.push({
-          farmer_id: farmerId,
-          title: `Plant ${crop.crop_name}`,
-          description: `Planting date for ${crop.crop_name} (${crop.crop_type})`,
-          event_date: crop.planting_date,
-          event_type: 'planting',
-          status: crop.status === 'planted' ? 'completed' : 'pending',
-          crop_id: crop.id,
-          plot_id: crop.plot_id
-        });
+      if (event.reference_type === 'crop_planting' && updates.planting_date) {
+        eventUpdates.date = updates.planting_date;
+        shouldUpdate = true;
       }
       
-      // Create harvest event if it doesn't exist and has an expected harvest date
-      if (!existingCropEvents.harvesting && crop.expected_harvest_date) {
-        eventsToCreate.push({
-          farmer_id: farmerId,
-          title: `Harvest ${crop.crop_name}`,
-          description: `Expected harvest date for ${crop.crop_name} (${crop.crop_type})`,
-          event_date: crop.expected_harvest_date,
-          event_type: 'harvesting',
-          status: crop.status === 'harvested' ? 'completed' : 'pending',
-          crop_id: crop.id,
-          plot_id: crop.plot_id
-        });
+      if (event.reference_type === 'crop_harvest' && updates.expected_harvest_date) {
+        eventUpdates.date = updates.expected_harvest_date;
+        shouldUpdate = true;
       }
-    });
-    
-    // Insert events in batches if there are any to create
-    if (eventsToCreate.length > 0) {
-      const { error: insertError } = await supabase
-        .from('farm_events')
-        .insert(eventsToCreate);
       
-      if (insertError) throw insertError;
+      if (updates.status) {
+        eventUpdates.status = updates.status === 'harvested' ? 'completed' : 'pending';
+        shouldUpdate = true;
+      }
       
-      console.log(`Created ${eventsToCreate.length} events from crops`);
-    } else {
-      console.log('No new events to create');
+      if (updates.crop_name) {
+        eventUpdates.title = event.title.replace(/- .*$/, `- ${updates.crop_name}`);
+        eventUpdates.description = event.description.replace(/for .*? in/, `for ${updates.crop_name} in`);
+        shouldUpdate = true;
+      }
+      
+      if (shouldUpdate) {
+        updatePromises.push(
+          supabase
+            .from('farmer_events')
+            .update(eventUpdates)
+            .eq('id', event.id)
+        );
+      }
     }
     
+    if (updatePromises.length > 0) {
+      await Promise.all(updatePromises);
+    }
+    
+    return { updated: updatePromises.length };
   } catch (error) {
-    console.error('Error syncing crops to calendar:', error);
-    throw new Error('Failed to sync crop events to calendar');
+    console.error("Error updating crop events:", error);
+    throw error;
   }
-}
-
-/**
- * Update crop events when a crop is updated
- */
-export async function updateCropEvents(cropId: string, cropData: any): Promise<void> {
-  try {
-    const { planting_date, expected_harvest_date, crop_name, status } = cropData;
-    
-    // Update planting event
-    if (planting_date) {
-      const { data: plantingEvents, error: fetchError } = await supabase
-        .from('farm_events')
-        .select('id')
-        .eq('crop_id', cropId)
-        .eq('event_type', 'planting');
-        
-      if (fetchError) throw fetchError;
-      
-      if (plantingEvents && plantingEvents.length > 0) {
-        // Update existing planting event
-        const { error: updateError } = await supabase
-          .from('farm_events')
-          .update({ 
-            event_date: planting_date,
-            title: `Plant ${crop_name}`,
-            status: status === 'planted' ? 'completed' : 'pending'
-          })
-          .eq('id', plantingEvents[0].id);
-          
-        if (updateError) throw updateError;
-      } else {
-        // Get farmer_id from crop
-        const { data: crop, error: cropError } = await supabase
-          .from('crops')
-          .select('farmer_id, plot_id')
-          .eq('id', cropId)
-          .single();
-          
-        if (cropError) throw cropError;
-        
-        // Create new planting event
-        const { error: insertError } = await supabase
-          .from('farm_events')
-          .insert([{
-            farmer_id: crop.farmer_id,
-            title: `Plant ${crop_name}`,
-            description: `Planting date for ${crop_name}`,
-            event_date: planting_date,
-            event_type: 'planting',
-            status: status === 'planted' ? 'completed' : 'pending',
-            crop_id: cropId,
-            plot_id: crop.plot_id
-          }]);
-          
-        if (insertError) throw insertError;
-      }
-    }
-    
-    // Update harvesting event
-    if (expected_harvest_date) {
-      const { data: harvestEvents, error: fetchError } = await supabase
-        .from('farm_events')
-        .select('id')
-        .eq('crop_id', cropId)
-        .eq('event_type', 'harvesting');
-        
-      if (fetchError) throw fetchError;
-      
-      if (harvestEvents && harvestEvents.length > 0) {
-        // Update existing harvesting event
-        const { error: updateError } = await supabase
-          .from('farm_events')
-          .update({ 
-            event_date: expected_harvest_date,
-            title: `Harvest ${crop_name}`,
-            status: status === 'harvested' ? 'completed' : 'pending'
-          })
-          .eq('id', harvestEvents[0].id);
-          
-        if (updateError) throw updateError;
-      } else {
-        // Get farmer_id from crop
-        const { data: crop, error: cropError } = await supabase
-          .from('crops')
-          .select('farmer_id, plot_id')
-          .eq('id', cropId)
-          .single();
-          
-        if (cropError) throw cropError;
-        
-        // Create new harvesting event
-        const { error: insertError } = await supabase
-          .from('farm_events')
-          .insert([{
-            farmer_id: crop.farmer_id,
-            title: `Harvest ${crop_name}`,
-            description: `Expected harvest date for ${crop_name}`,
-            event_date: expected_harvest_date,
-            event_type: 'harvesting',
-            status: status === 'harvested' ? 'completed' : 'pending',
-            crop_id: cropId,
-            plot_id: crop.plot_id
-          }]);
-          
-        if (insertError) throw insertError;
-      }
-    }
-    
-  } catch (error) {
-    console.error('Error updating crop events:', error);
-    throw new Error('Failed to update crop events');
-  }
-} 
+}; 
