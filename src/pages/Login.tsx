@@ -11,7 +11,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/AuthContext";
-import { createTestUsers } from "@/services/testDataService";
 
 // Create a schema for form validation
 const formSchema = z.object({
@@ -23,7 +22,6 @@ type FormData = z.infer<typeof formSchema>;
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
-  const [testUsersCreated, setTestUsersCreated] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -72,50 +70,7 @@ export default function Login() {
       }
     } catch (error) {
       console.error("Login error:", error);
-      toast.error("Failed to sign in. Please check your credentials.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleCreateTestUsers() {
-    try {
-      setLoading(true);
-      toast.info("Creating test users...");
-      
-      const result = await createTestUsers();
-      
-      if (result.success) {
-        toast.success(
-          "Test users created successfully. You can login with any of these accounts using password 'password123':",
-          {
-            description: (
-              <ul className="mt-2 list-disc pl-4">
-                <li>farmer@test.com (Farmer)</li>
-                <li>regional@test.com (Regional Admin)</li>
-                <li>organization@test.com (Org Admin)</li>
-                <li>superadmin@test.com (Super Admin)</li>
-              </ul>
-            ),
-            duration: 10000,
-          }
-        );
-        setTestUsersCreated(true);
-      } else {
-        toast.error("Failed to create test users: " + (result.error?.message || "Unknown error"));
-        
-        // Show specific errors for each user if available
-        if (result.results) {
-          result.results.forEach(item => {
-            if (!item.result.success) {
-              toast.error(`Error creating ${item.email}: ${item.result.error?.message || "Unknown error"}`);
-            }
-          });
-        }
-      }
-    } catch (error: any) {
-      console.error("Error creating test users:", error);
-      toast.error(`Failed to create test users: ${error.message || "Unknown error"}`);
+      toast.error("Login failed. Please check your credentials and try again.");
     } finally {
       setLoading(false);
     }
@@ -125,15 +80,15 @@ export default function Login() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-muted/50 p-4">
       <Link to="/" className="flex items-center gap-2 mb-8">
         <div className="w-10 h-10 rounded-full bg-[#4F772D] flex items-center justify-center">
-          <span className="text-white font-bold text-lg">A</span>
+          <span className="text-white font-bold text-lg">D</span>
         </div>
-        <span className="text-2xl font-bold">AgriKonek</span>
+        <span className="text-2xl font-bold">DAgriKonek</span>
       </Link>
       
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Welcome back</CardTitle>
-          <CardDescription>Sign in to your AgriKonek account</CardDescription>
+          <CardDescription>Sign in to your DAgriKonek account</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -178,21 +133,6 @@ export default function Login() {
               </Button>
             </form>
           </Form>
-          
-          {!testUsersCreated && (
-            <div className="mt-4">
-              <Button 
-                variant="outline" 
-                className="w-full mt-2" 
-                onClick={handleCreateTestUsers}
-              >
-                Create Test Users
-              </Button>
-              <p className="text-xs text-muted-foreground mt-1 text-center">
-                Click to create test accounts for all roles
-              </p>
-            </div>
-          )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Separator />
@@ -200,11 +140,6 @@ export default function Login() {
             Don't have an account?{" "}
             <Link to="/register" className="text-[#4F772D] hover:underline">
               Create one
-            </Link>
-          </div>
-          <div className="text-center text-xs text-muted-foreground">
-            <Link to="/test-auth" className="text-gray-400 hover:underline">
-              Admin Auth Tools
             </Link>
           </div>
         </CardFooter>

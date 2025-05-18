@@ -24,12 +24,12 @@ export async function login(email: string, password: string) {
         console.error("User not found");
       }
       
-      return { success: false, error: { message: 'User not found', code: userError.code } };
+      return { success: false, error: { message: 'Login failed. Please check your credentials.' } };
     }
     
     if (!userData) {
       console.log("No user found with email:", email);
-      return { success: false, error: { message: 'User not found' } };
+      return { success: false, error: { message: 'Login failed. Please check your credentials.' } };
     }
 
     console.log("Found user with ID:", userData.id);
@@ -49,7 +49,7 @@ export async function login(email: string, password: string) {
         console.error("This may be due to API restrictions on the user_credentials table");
       }
       
-      return { success: false, error: { message: 'Error checking credentials', code: credError.code } };
+      return { success: false, error: { message: 'Login failed. Please try again.' } };
     }
     
     if (!credData) {
@@ -66,7 +66,7 @@ export async function login(email: string, password: string) {
           
         if (insertError) {
           console.error("Failed to create missing credentials:", insertError);
-          return { success: false, error: { message: 'Failed to create missing credentials' } };
+          return { success: false, error: { message: 'Login failed. Please try again.' } };
         }
         
         console.log("Created missing credentials for user");
@@ -85,7 +85,7 @@ export async function login(email: string, password: string) {
         return { success: true, user: userData };
       } catch (credCreateError) {
         console.error("Error creating credentials:", credCreateError);
-        return { success: false, error: { message: 'Error creating credentials' } };
+        return { success: false, error: { message: 'Login failed. Please try again.' } };
       }
     }
 
@@ -95,7 +95,7 @@ export async function login(email: string, password: string) {
     // In a real app, this would use a secure password hashing function
     if (credData.password_hash !== password) {
       console.log("Password mismatch for user:", email);
-      return { success: false, error: { message: 'Invalid password' } };
+      return { success: false, error: { message: 'Login failed. Please check your credentials.' } };
     }
     
     console.log("Login successful for user:", email);
@@ -113,7 +113,7 @@ export async function login(email: string, password: string) {
     return { success: true, user: userData };
   } catch (error) {
     console.error("Error logging in:", error);
-    return { success: false, error };
+    return { success: false, error: { message: 'Login failed. Please try again.' } };
   }
 }
 

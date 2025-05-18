@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -113,15 +112,15 @@ export default function Register() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-muted/50 p-4">
       <Link to="/" className="flex items-center gap-2 mb-8">
         <div className="w-10 h-10 rounded-full bg-[#4F772D] flex items-center justify-center">
-          <span className="text-white font-bold text-lg">A</span>
+          <span className="text-white font-bold text-lg">D</span>
         </div>
-        <span className="text-2xl font-bold">AgriKonek</span>
+        <span className="text-2xl font-bold">DAgriKonek</span>
       </Link>
       
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Create an account</CardTitle>
-          <CardDescription>Join AgriKonek and start managing your agricultural operations</CardDescription>
+          <CardDescription>Join DAgriKonek and start managing your agricultural operations</CardDescription>
         </CardHeader>
         <CardContent>
           {dbStatus === 'not_ready' && (

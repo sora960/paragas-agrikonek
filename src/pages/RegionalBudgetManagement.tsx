@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/AuthContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { CalendarIcon, DollarSign, Building2, SendIcon, History, Loader2, Inbox } from "lucide-react";
+import { CalendarIcon, Banknote, Building2, SendIcon, History, Loader2, Inbox } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -814,7 +814,7 @@ export default function RegionalBudgetManagement() {
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount</Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Banknote className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="amount"
                     type="number"

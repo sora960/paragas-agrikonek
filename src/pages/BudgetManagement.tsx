@@ -215,15 +215,15 @@ export default function BudgetManagement() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <div className="text-sm font-medium">Total Budget</div>
-                <div className="text-2xl font-bold">${totalBudget.toLocaleString()}</div>
+                <div className="text-2xl font-bold">₱{totalBudget.toLocaleString()}</div>
               </div>
               <div className="space-y-2">
                 <div className="text-sm font-medium">Allocated</div>
-                <div className="text-2xl font-bold">${totalAllocated.toLocaleString()}</div>
+                <div className="text-2xl font-bold">₱{totalAllocated.toLocaleString()}</div>
               </div>
               <div className="space-y-2">
                 <div className="text-sm font-medium">Remaining</div>
-                <div className="text-2xl font-bold">${remainingBudget.toLocaleString()}</div>
+                <div className="text-2xl font-bold">₱{remainingBudget.toLocaleString()}</div>
               </div>
             </div>
             <div className="space-y-2">
@@ -281,8 +281,10 @@ export default function BudgetManagement() {
                   ) : (
                     filteredRegions.map((region) => (
                       <TableRow key={region.id}>
-                        <TableCell className="font-medium">{region.name}</TableCell>
-                        <TableCell>${region.current_budget.toLocaleString()}</TableCell>
+                        <TableCell className="font-medium">
+                          {region.name}
+                        </TableCell>
+                        <TableCell>₱{region.current_budget.toLocaleString()}</TableCell>
                         <TableCell className="w-52">
                           <Input
                             type="number"

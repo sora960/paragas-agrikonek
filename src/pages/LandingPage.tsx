@@ -222,7 +222,7 @@ export default function LandingPage() {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">Powerful Features</h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Discover how AgriKonek transforms agricultural management with innovative features designed for farmers and organizations.
+              Discover how DAgriKonek transforms agricultural management with innovative features designed for farmers and organizations.
             </p>
           </div>
           
@@ -296,7 +296,7 @@ export default function LandingPage() {
               </div>
               
               <p className="text-gray-600 dark:text-gray-300 text-lg leading-relaxed mb-8">
-                Partnering with the Department of Agriculture, DA-AgriKonek is dedicated to revolutionizing the agricultural landscape across the Philippines. Our goal is to empower farmers and farmer organizations with innovative digital solutions, streamlining resource management and funding processes while promoting sustainable growth and productivity. Through this strategic alliance, we aim to bridge traditional farming practices with modern technology, ensuring that every sector of the agricultural community thrives in a competitive, ever-evolving market.
+                Partnering with the Department of Agriculture, DAgriKonek is dedicated to revolutionizing the agricultural landscape across the Philippines. Our goal is to empower farmers and farmer organizations with innovative digital solutions, streamlining resource allocation and enhancing operational efficiency.
               </p>
               
               <Link to="/register">

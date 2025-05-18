@@ -28,8 +28,8 @@ const getAuthHeaders = (token?: string) => {
  */
 export const assignRegionalAdmin = async (userId: string, regionId: string) => {
   try {
-    // Call the stored procedure
-    const { data, error } = await supabase.rpc('admin_assign_regional_admin', {
+    // Call the stored procedure with the correct name
+    const { data, error } = await supabase.rpc('assign_regional_admin', {
       p_user_id: userId,
       p_region_id: regionId
     });

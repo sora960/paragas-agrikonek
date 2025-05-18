@@ -75,7 +75,7 @@ export default function DashboardLayout({
       <div className="flex-1 overflow-auto">
         <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur flex justify-between items-center p-4">
           <Link to={getDashboardPath()} className="text-2xl font-bold text-primary">
-            AgriConnect
+            DAgriKonek
           </Link>
           <div className="flex items-center gap-4">
             <SimpleThemeToggle />
@@ -118,7 +118,7 @@ export default function DashboardLayout({
           {children}
         </main>
         <footer className="text-center text-muted-foreground text-sm p-4 border-t border-border">
-          <p>© 2024 AgriConnect. All rights reserved.</p>
+          <p>© 2024 DAgriKonek. All rights reserved.</p>
         </footer>
       </div>
     </div>

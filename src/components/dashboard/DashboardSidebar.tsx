@@ -11,7 +11,6 @@ import {
   Building2,
   Wheat,
   BarChart3,
-  DollarSign,
   Receipt,
   MessageCircle,
   User,
@@ -23,6 +22,8 @@ import {
   BellRing,
   FileText,
   CircleDollarSign,
+  CurrencyIcon,
+  Banknote,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMessaging } from "@/hooks/useMessaging";
@@ -90,7 +91,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       { label: "User Management", path: "/superadmin/user-management", icon: UserPlus },
       { label: "Regions", path: "/superadmin/regions", icon: Map },
       { label: "Organizations", path: "/superadmin/organizations", icon: Building },
-      { label: "Budget Management", path: "/superadmin/budget-management", icon: DollarSign },
+      { label: "Budget Management", path: "/superadmin/budget-management", icon: Banknote },
       { label: "Budget Requests", path: "/superadmin/budget-requests", icon: Receipt },
       { label: "Settings", path: "/superadmin/settings", icon: Settings },
     ],
@@ -99,7 +100,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       { label: "Organizations", path: "/regional/organizations", icon: Building },
       { label: "Farmers", path: "/regional/farmers", icon: Users },
       { label: "Budget Center", path: "/regional/budget-center", icon: Wallet },
-      { label: "Budget Management", path: "/regional/budget-management", icon: DollarSign },
+      { label: "Budget Management", path: "/regional/budget-management", icon: Banknote },
       { label: "Request Budget", path: "/regional/request-budget", icon: CircleDollarSign },
       { label: "Messages", path: "/regional/messages", icon: MessageCircle },
       { label: "Settings", path: "/regional/settings", icon: Settings },
@@ -111,7 +112,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       { label: "Announcements", path: "/organization-admin/announcements", icon: Megaphone },
       { label: "Messages", path: "/organization-admin/messages", icon: MessageCircle },
       { label: "Budget Center", path: "/organization/budget-center", icon: Wallet },
-      { label: "Budget Distribution", path: "/organization/budget-distribution", icon: DollarSign },
+      { label: "Budget Distribution", path: "/organization/budget-distribution", icon: Banknote },
       { label: "Region Assignment", path: "/organization/settings/region", icon: Map },
       { label: "Expenses", path: "/organization/expenses", icon: Receipt },
       { label: "Reports", path: "/organization/reports", icon: BarChart3 },
@@ -139,9 +140,9 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       <div className="flex items-center gap-2 mb-8 p-2">
         <Link to={getDashboardPath()} className="flex items-center gap-2">
           <div className="w-8 h-8 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold">
-            AC
+            D
           </div>
-          <h1 className="text-xl font-bold">AgriConnect</h1>
+          <h1 className="text-xl font-bold">DAgriKonek</h1>
         </Link>
       </div>
       
