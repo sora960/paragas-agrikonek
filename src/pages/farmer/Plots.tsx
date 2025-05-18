@@ -604,6 +604,9 @@ export default function Plots() {
                 }`}></span>
                 {selectedPlot?.plot_name} Details
               </DialogTitle>
+              <DialogDescription>
+                View details and status of your selected plot.
+              </DialogDescription>
               <div className="flex flex-wrap gap-2 items-center mt-2">
                 <Badge variant="outline" className={getStatusColor(selectedPlot?.status || '')}>
                   {getStatusIcon(selectedPlot?.status || '')}
