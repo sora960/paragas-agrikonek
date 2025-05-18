@@ -206,7 +206,7 @@ const App = () => {
                   <Route 
                     path="/superadmin/budget-requests" 
                     element={
-                      <ProtectedRoute allowedRoles={["superadmin"]}>
+                      <ProtectedRoute allowedRoles={["superadmin", "admin"]}>
                         <SuperAdminBudgetRequests />
                       </ProtectedRoute>
                     } 

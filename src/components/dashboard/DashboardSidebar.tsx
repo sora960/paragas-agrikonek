@@ -228,7 +228,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
         })}
 
         {/* Messaging link for superadmin and regional roles - uses the generic /messages path */}
-        {normalizedRole !== "farmer" && normalizedRole !== "organization" && (
+        {normalizedRole === "regional" && (
           <Link
             to="/messages"
             className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
