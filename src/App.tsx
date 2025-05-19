@@ -66,6 +66,7 @@ import Resources from "./pages/farmer/Resources";
 import Weather from "./pages/farmer/Weather";
 import RegionalSettings from "./pages/regional/Settings";
 import RegionalOrganizationMessaging from "./pages/regional/RegionalOrganizationMessaging";
+import OrganizationBudgetRequests from "./pages/organization/OrganizationBudgetRequests";
 
 const queryClient = new QueryClient();
 
@@ -380,6 +381,14 @@ const App = () => {
                     element={
                       <ProtectedRoute allowedRoles={["org_admin", "organization_admin"]}>
                         <OrganizationBudgetCenter />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/organization/budget-requests" 
+                    element={
+                      <ProtectedRoute allowedRoles={["org_admin", "organization_admin"]}>
+                        <OrganizationBudgetRequests />
                       </ProtectedRoute>
                     } 
                   />

@@ -16,9 +16,9 @@ export interface FarmEvent {
 // Fetch events for a specific farmer
 export const getFarmerEvents = async (farmerId: string) => {
   try {
-    const { data, error } = await supabase
+  const { data, error } = await supabase
       .from('farmer_events')
-      .select('*')
+    .select('*')
       .eq('farmer_id', farmerId);
     
     if (error) throw error;
@@ -32,12 +32,12 @@ export const getFarmerEvents = async (farmerId: string) => {
 // Add a new event
 export const addEvent = async (event: any) => {
   try {
-    const { data, error } = await supabase
+  const { data, error } = await supabase
       .from('farmer_events')
       .insert([event])
-      .select()
-      .single();
-    
+    .select()
+    .single();
+  
     if (error) throw error;
     return data;
   } catch (error) {
@@ -49,13 +49,13 @@ export const addEvent = async (event: any) => {
 // Update an event
 export const updateEvent = async (eventId: string, updates: any) => {
   try {
-    const { data, error } = await supabase
+  const { data, error } = await supabase
       .from('farmer_events')
       .update(updates)
-      .eq('id', eventId)
-      .select()
-      .single();
-    
+    .eq('id', eventId)
+    .select()
+    .single();
+  
     if (error) throw error;
     return data;
   } catch (error) {
@@ -67,11 +67,11 @@ export const updateEvent = async (eventId: string, updates: any) => {
 // Delete an event
 export const deleteEvent = async (eventId: string) => {
   try {
-    const { error } = await supabase
+  const { error } = await supabase
       .from('farmer_events')
-      .delete()
-      .eq('id', eventId);
-    
+    .delete()
+    .eq('id', eventId);
+  
     if (error) throw error;
     return true;
   } catch (error) {
@@ -83,13 +83,13 @@ export const deleteEvent = async (eventId: string) => {
 // Mark event as completed
 export const markEventAsCompleted = async (eventId: string) => {
   try {
-    const { data, error } = await supabase
+  const { data, error } = await supabase
       .from('farmer_events')
-      .update({ status: 'completed' })
-      .eq('id', eventId)
-      .select()
-      .single();
-    
+    .update({ status: 'completed' })
+    .eq('id', eventId)
+    .select()
+    .single();
+  
     if (error) throw error;
     return data;
   } catch (error) {
@@ -101,8 +101,8 @@ export const markEventAsCompleted = async (eventId: string) => {
 // Get all farm plots for a farmer
 export const getFarmPlots = async (farmerId: string) => {
   try {
-    const { data, error } = await supabase
-      .from('farm_plots')
+  const { data, error } = await supabase
+    .from('farm_plots')
       .select('*')
       .eq('farmer_id', farmerId);
     
@@ -216,13 +216,13 @@ export const syncCropsToCalendar = async (farmerId: string) => {
 export const generateCropActivities = async (cropId: string) => {
   try {
     // Get crop details
-    const { data: crop, error: cropError } = await supabase
-      .from('crops')
+        const { data: crop, error: cropError } = await supabase
+          .from('crops')
       .select('id, crop_name, crop_type, planting_date, expected_harvest_date, plot_id')
-      .eq('id', cropId)
-      .single();
-    
-    if (cropError) throw cropError;
+          .eq('id', cropId)
+          .single();
+          
+        if (cropError) throw cropError;
     if (!crop) throw new Error("Crop not found");
     
     const { data: plot, error: plotError } = await supabase
@@ -309,7 +309,7 @@ export const generateCropActivities = async (cropId: string) => {
       const { error: activitiesError } = await supabase
         .from('crop_activities')
         .insert(activities);
-      
+          
       if (activitiesError) throw activitiesError;
     }
     
@@ -387,7 +387,7 @@ export const updateCropEvents = async (cropId: string, updates: any) => {
     
     if (updatePromises.length > 0) {
       await Promise.all(updatePromises);
-    }
+      }
     
     return { updated: updatePromises.length };
   } catch (error) {

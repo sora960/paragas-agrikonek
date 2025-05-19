@@ -571,12 +571,20 @@ export const organizationService = {
       
       // If not found in profile, check organization_members table
       if (farmerProfile?.id) {
+        interface MembershipResponse {
+          organization_id: string;
+          organizations: {
+            id: string;
+            name: string;
+          };
+        }
+        
         const { data: membership, error: membershipError } = await supabase
           .from('organization_members')
           .select('organization_id, organizations:organization_id(id, name)')
           .eq('farmer_id', farmerProfile.id)
           .eq('status', 'active')
-          .single();
+          .single<MembershipResponse>();
           
         if (membershipError) {
           console.error("Error fetching membership:", membershipError);

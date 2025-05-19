@@ -112,6 +112,7 @@ export default function DashboardSidebar({ role }: DashboardSidebarProps) {
       { label: "Messages", path: "/organization-admin/messages", icon: MessageCircle },
       { label: "Budget Center", path: "/organization/budget-center", icon: Wallet },
       { label: "Budget Distribution", path: "/organization/budget-distribution", icon: Banknote },
+      { label: "Budget Requests", path: "/organization/budget-requests", icon: Receipt },
       { label: "Region Assignment", path: "/organization/settings/region", icon: Map },
       { label: "Expenses", path: "/organization/expenses", icon: Receipt },
       { label: "Reports", path: "/organization/reports", icon: BarChart3 },

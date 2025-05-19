@@ -336,7 +336,7 @@ export default function FarmerCalendar() {
       // Update the events state with the updated event
       setEvents(events.map(e => e.id === updatedEvent.id ? updatedEvent : e));
       if (!event) {
-        setEventDialogOpen(false);
+      setEventDialogOpen(false);
       }
       
       uiToast({
@@ -513,7 +513,7 @@ export default function FarmerCalendar() {
           </div>
           
           <div className="flex gap-2 self-end sm:self-auto">
-            <Button
+            <Button 
               variant="outline"
               onClick={handleSyncCrops}
               disabled={syncingCrops}
@@ -526,15 +526,15 @@ export default function FarmerCalendar() {
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Sync Crop Events
+              Sync Crop Events
                 </>
               )}
             </Button>
             
             <Button onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              Add Event
-            </Button>
+                  Add Event
+                </Button>
           </div>
         </div>
 
@@ -696,77 +696,190 @@ export default function FarmerCalendar() {
         {/* Dialogs for Add/Edit events */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Add New Calendar Event</DialogTitle>
-              <DialogDescription>
-                Create a new event on your farm calendar.
-              </DialogDescription>
-            </DialogHeader>
-            
+                <DialogHeader>
+                  <DialogTitle>Add New Calendar Event</DialogTitle>
+                  <DialogDescription>
+                    Create a new event on your farm calendar.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="grid gap-4 py-4">
+                  <div>
+                    <Label htmlFor="event-title">Title</Label>
+                    <Input
+                      id="event-title"
+                      placeholder="Event title"
+                      value={newEvent.title}
+                      onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="event-date">Date</Label>
+                    <Input
+                      id="event-date"
+                      type="date"
+                      value={newEvent.event_date}
+                      onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="event-type">Event Type</Label>
+                    <Select
+                      value={newEvent.event_type}
+                      onValueChange={(value: any) => setNewEvent({ ...newEvent, event_type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select event type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="planting">Planting</SelectItem>
+                        <SelectItem value="harvesting">Harvesting</SelectItem>
+                        <SelectItem value="fertilizing">Fertilizing</SelectItem>
+                        <SelectItem value="pesticide">Pesticide Application</SelectItem>
+                        <SelectItem value="irrigation">Irrigation</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="link-to-plot" 
+                        checked={linkedToCrop}
+                        onCheckedChange={(checked) => setLinkedToCrop(!!checked)}
+                      />
+                      <Label htmlFor="link-to-plot">Link to a plot</Label>
+                    </div>
+                  </div>
+                  
+                  {linkedToCrop && (
+                    <div>
+                      <Label htmlFor="plot-id">Farm Plot</Label>
+                      <Select
+                        value={newEvent.plot_id || ""}
+                        onValueChange={(value) => setNewEvent({ ...newEvent, plot_id: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a plot" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availablePlots.map((plot) => (
+                            <SelectItem key={plot.id} value={plot.id}>
+                              {plot.plot_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <Label htmlFor="event-description">Description</Label>
+                    <Textarea
+                      id="event-description"
+                      placeholder="Event details..."
+                      value={newEvent.description || ""}
+                      onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                    />
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateEvent}>
+                    Create Event
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+      <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Event Details</DialogTitle>
+            <DialogDescription>
+              View or modify your farming event
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvent && (
             <div className="grid gap-4 py-4">
-              <div>
-                <Label htmlFor="event-title">Title</Label>
+              <div className="grid grid-cols-4 items-center gap-2">
+                <Label htmlFor="edit-title" className="col-span-4">
+                  Event Title <span className="text-red-500">*</span>
+                </Label>
                 <Input
-                  id="event-title"
-                  placeholder="Event title"
+                  id="edit-title"
                   value={newEvent.title}
                   onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  className="col-span-4"
                 />
               </div>
-              
-              <div>
-                <Label htmlFor="event-date">Date</Label>
-                <Input
-                  id="event-date"
-                  type="date"
-                  value={newEvent.event_date}
-                  onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="event-type">Event Type</Label>
-                <Select
+              <div className="grid grid-cols-4 items-center gap-2">
+                <Label htmlFor="edit-event-type" className="col-span-4">
+                  Event Type
+                </Label>
+                <Select 
                   value={newEvent.event_type}
-                  onValueChange={(value: any) => setNewEvent({ ...newEvent, event_type: value })}
+                  onValueChange={(value) => setNewEvent({ ...newEvent, event_type: value as any })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="col-span-4">
                     <SelectValue placeholder="Select event type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="planting">Planting</SelectItem>
                     <SelectItem value="harvesting">Harvesting</SelectItem>
-                    <SelectItem value="fertilizing">Fertilizing</SelectItem>
-                    <SelectItem value="pesticide">Pesticide Application</SelectItem>
-                    <SelectItem value="irrigation">Irrigation</SelectItem>
                     <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="fertilizing">Fertilizing</SelectItem>
+                    <SelectItem value="irrigation">Irrigation</SelectItem>
+                      <SelectItem value="pesticide">Pesticide Application</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="link-to-plot" 
-                    checked={linkedToCrop}
-                    onCheckedChange={(checked) => setLinkedToCrop(!!checked)}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-event-date" className="col-span-4">
+                  Event Date
+                </Label>
+                <div className="col-span-2">
+                  <Input
+                    id="edit-event-date"
+                    type="date"
+                    value={newEvent.event_date}
+                    onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
                   />
-                  <Label htmlFor="link-to-plot">Link to a plot</Label>
+                </div>
+                <Label htmlFor="edit-end-date" className="text-right">
+                  End Date
+                </Label>
+                <div className="col-span-1">
+                  <Input
+                    id="edit-end-date"
+                    type="date"
+                    value={newEvent.end_date || ""}
+                    onChange={(e) => setNewEvent({ ...newEvent, end_date: e.target.value || undefined })}
+                  />
                 </div>
               </div>
-              
-              {linkedToCrop && (
-                <div>
-                  <Label htmlFor="plot-id">Farm Plot</Label>
-                  <Select
-                    value={newEvent.plot_id || ""}
+              {availablePlots.length > 0 && (
+                <div className="grid grid-cols-4 items-center gap-2">
+                  <Label htmlFor="edit-plot" className="col-span-4">
+                    Farm Plot
+                  </Label>
+                  <Select 
+                    value={newEvent.plot_id}
                     onValueChange={(value) => setNewEvent({ ...newEvent, plot_id: value })}
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a plot" />
+                    <SelectTrigger className="col-span-4">
+                      <SelectValue placeholder="Select a plot (optional)" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="">None</SelectItem>
                       {availablePlots.map((plot) => (
                         <SelectItem key={plot.id} value={plot.id}>
                           {plot.plot_name}
@@ -776,170 +889,57 @@ export default function FarmerCalendar() {
                   </Select>
                 </div>
               )}
-              
-              <div>
-                <Label htmlFor="event-description">Description</Label>
+              <div className="grid grid-cols-4 items-center gap-2">
+                <Label htmlFor="edit-description" className="col-span-4">
+                  Description
+                </Label>
                 <Textarea
-                  id="event-description"
-                  placeholder="Event details..."
+                  id="edit-description"
                   value={newEvent.description || ""}
                   onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  className="col-span-4"
+                  rows={3}
                 />
               </div>
-            </div>
-            
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateEvent}>
-                Create Event
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
-        <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Event Details</DialogTitle>
-              <DialogDescription>
-                View or modify your farming event
-              </DialogDescription>
-            </DialogHeader>
-            {selectedEvent && (
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-2">
-                  <Label htmlFor="edit-title" className="col-span-4">
-                    Event Title <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="edit-title"
-                    value={newEvent.title}
-                    onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                    className="col-span-4"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-2">
-                  <Label htmlFor="edit-event-type" className="col-span-4">
-                    Event Type
-                  </Label>
-                  <Select 
-                    value={newEvent.event_type}
-                    onValueChange={(value) => setNewEvent({ ...newEvent, event_type: value as any })}
-                  >
-                    <SelectTrigger className="col-span-4">
-                      <SelectValue placeholder="Select event type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="planting">Planting</SelectItem>
-                      <SelectItem value="harvesting">Harvesting</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                      <SelectItem value="fertilizing">Fertilizing</SelectItem>
-                      <SelectItem value="irrigation">Irrigation</SelectItem>
-                      <SelectItem value="pesticide">Pesticide Application</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="edit-event-date" className="col-span-4">
-                    Event Date
-                  </Label>
-                  <div className="col-span-2">
-                    <Input
-                      id="edit-event-date"
-                      type="date"
-                      value={newEvent.event_date}
-                      onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
-                    />
-                  </div>
-                  <Label htmlFor="edit-end-date" className="text-right">
-                    End Date
-                  </Label>
-                  <div className="col-span-1">
-                    <Input
-                      id="edit-end-date"
-                      type="date"
-                      value={newEvent.end_date || ""}
-                      onChange={(e) => setNewEvent({ ...newEvent, end_date: e.target.value || undefined })}
-                    />
-                  </div>
-                </div>
-                {availablePlots.length > 0 && (
-                  <div className="grid grid-cols-4 items-center gap-2">
-                    <Label htmlFor="edit-plot" className="col-span-4">
-                      Farm Plot
-                    </Label>
-                    <Select 
-                      value={newEvent.plot_id}
-                      onValueChange={(value) => setNewEvent({ ...newEvent, plot_id: value })}
-                    >
-                      <SelectTrigger className="col-span-4">
-                        <SelectValue placeholder="Select a plot (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">None</SelectItem>
-                        {availablePlots.map((plot) => (
-                          <SelectItem key={plot.id} value={plot.id}>
-                            {plot.plot_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="grid grid-cols-4 items-center gap-2">
-                  <Label htmlFor="edit-description" className="col-span-4">
-                    Description
-                  </Label>
-                  <Textarea
-                    id="edit-description"
-                    value={newEvent.description || ""}
-                    onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                    className="col-span-4"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex justify-between items-center border-t pt-4">
-                  <div className="flex items-center gap-2">
-                    <Badge className={getEventStatusColor(selectedEvent.status)}>
-                      {selectedEvent.status.charAt(0).toUpperCase() + selectedEvent.status.slice(1)}
-                    </Badge>
-                    {selectedEvent.status !== 'completed' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+              <div className="flex justify-between items-center border-t pt-4">
+                <div className="flex items-center gap-2">
+                  <Badge className={getEventStatusColor(selectedEvent.status)}>
+                    {selectedEvent.status.charAt(0).toUpperCase() + selectedEvent.status.slice(1)}
+                  </Badge>
+                  {selectedEvent.status !== 'completed' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
                         onClick={() => handleMarkCompleted()}
-                        className="text-green-600 hover:text-green-700"
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Mark Completed
-                      </Button>
-                    )}
-                  </div>
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    onClick={() => handleDeleteEvent()}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
+                      className="text-green-600 hover:text-green-700"
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Mark Completed
+                    </Button>
+                  )}
                 </div>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                    onClick={() => handleDeleteEvent()}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Delete
+                </Button>
               </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEventDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleUpdateEvent}>
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEventDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateEvent}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </DashboardLayout>
   );
